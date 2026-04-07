@@ -71,7 +71,7 @@ const SplitPage = () => {
 
         <div className="mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground">Split a Receipt</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Add items, assign diners, and see who owes what.</p>
+          <p className="text-sm sm:text-base text-muted-foreground">Add items, assign people, and see who owes what.</p>
         </div>
 
         <div className="grid gap-6 sm:gap-8 lg:grid-cols-3">
@@ -82,11 +82,11 @@ const SplitPage = () => {
               <CardHeader className="flex flex-row items-center justify-between pb-3">
                 <CardTitle className="flex items-center gap-2 text-base font-bold">
                   <Users className="h-5 w-5 text-primary" />
-                  Diners
+                  People
                 </CardTitle>
                 <Button variant="outline" size="sm" className="gap-1.5 text-xs">
                   <UserPlus className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Add person</span>
+                  <span className="hidden sm:inline">Add a person</span>
                   <span className="sm:hidden">Add</span>
                 </Button>
               </CardHeader>

@@ -7,11 +7,11 @@ import { Separator } from "@/components/ui/separator";
 import { Flame, ArrowLeft, Receipt, Users, Calendar, ChevronRight, LogOut, Settings, DollarSign } from "lucide-react";
 
 const mockHistory = [
-  { id: 1, restaurant: "Haidilao Hotpot", date: "Mar 28, 2026", total: "$124.50", people: 4, yourShare: "$28.80", status: "settled" },
-  { id: 2, restaurant: "Korean BBQ House", date: "Mar 22, 2026", total: "$89.00", people: 3, yourShare: "$32.50", status: "settled" },
-  { id: 3, restaurant: "Sichuan Paradise", date: "Mar 15, 2026", total: "$156.20", people: 5, yourShare: "$25.40", status: "pending" },
-  { id: 4, restaurant: "Shabu-Shabu Zen", date: "Mar 8, 2026", total: "$72.00", people: 2, yourShare: "$38.00", status: "settled" },
-  { id: 5, restaurant: "Mongolian Grill", date: "Feb 28, 2026", total: "$98.75", people: 4, yourShare: "$22.15", status: "settled" },
+  { id: 1, ReceiptName: "Msia Trip", date: "Mar 28, 2026", total: "$124.50", people: 4, yourShare: "$28.80", status: "Settled" },
+  { id: 2, ReceiptName: "27th July 2026", date: "Mar 22, 2026", total: "$89.00", people: 3, yourShare: "$32.50", status: "Settled" },
+  { id: 3, ReceiptName: "Sichuan Paradise", date: "Mar 15, 2026", total: "$156.20", people: 5, yourShare: "$25.40", status: "Pending" },
+  { id: 4, ReceiptName: "Shabu-Shabu Zen", date: "Mar 8, 2026", total: "$72.00", people: 2, yourShare: "$38.00", status: "Settled" },
+  { id: 5, ReceiptName: "Mongolian Grill", date: "Feb 28, 2026", total: "$98.75", people: 4, yourShare: "$22.15", status: "Settled" },
 ];
 
 const ProfilePage = () => {
@@ -25,18 +25,16 @@ const ProfilePage = () => {
             <span className="text-xl font-extrabold text-foreground">SplitPot</span>
           </Link>
           <div className="flex items-center gap-2">
-            <Link to="/settings">
-              <Button variant="ghost" size="sm" className="gap-1.5">
-                <Settings className="h-4 w-4" />
-                <span className="hidden sm:inline">Settings</span>
-              </Button>
-            </Link>
             <Link to="/split">
               <Button size="sm" className="gap-1.5 font-semibold">
                 <Receipt className="h-4 w-4" />
                 <span className="hidden sm:inline">New Split</span>
               </Button>
             </Link>
+            <Button variant="ghost" size="sm" className="flex-1 sm:flex-none gap-1.5 text-destructive hover:text-destructive">
+              <LogOut className="h-4 w-4" />
+              Log out
+            </Button>
           </div>
         </div>
       </nav>
@@ -69,22 +67,18 @@ const ProfilePage = () => {
                     Settings
                   </Button>
                 </Link>
-                <Button variant="ghost" size="sm" className="flex-1 sm:flex-none gap-1.5 text-destructive hover:text-destructive">
-                  <LogOut className="h-4 w-4" />
-                  Log out
-                </Button>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Stats */}
-        <div className="mb-6 sm:mb-8 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
+        <div className="mb-6 sm:mb-8 grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3">
           {[
             { label: "Total splits", value: "23", icon: Receipt },
             { label: "Total spent", value: "$642.30", icon: DollarSign },
-            { label: "Friends", value: "12", icon: Users },
             { label: "This month", value: "$86.70", icon: Calendar },
+            // { label: "Friends", value: "Coming Soon", icon: Users },
           ].map((stat, i) => (
             <Card key={i} className="border">
               <CardContent className="flex flex-col items-center p-3 sm:p-4 text-center">
@@ -113,11 +107,11 @@ const ProfilePage = () => {
                     <Receipt className="h-4 w-4 sm:h-5 sm:w-5" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="truncate text-sm sm:text-base font-semibold text-foreground">{item.restaurant}</p>
+                    <p className="truncate text-sm sm:text-base font-semibold text-foreground">{item.ReceiptName}</p>
                     <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-muted-foreground">
                       <span>{item.date}</span>
                       <span>·</span>
-                      <span>{item.people}p</span>
+                      <span>{item.people} people</span>
                       <span className="hidden sm:inline">·</span>
                       <span className="hidden sm:inline">Total {item.total}</span>
                     </div>
@@ -127,7 +121,7 @@ const ProfilePage = () => {
                       <p className="text-sm sm:text-base font-bold text-foreground">{item.yourShare}</p>
                       <Badge
                         variant={item.status === "settled" ? "secondary" : "destructive"}
-                        className={`text-[10px] sm:text-xs ${item.status === "settled" ? "bg-success/15 text-success" : ""}`}
+                        className={`text-[10px] sm:text-xs ${item.status === "Settled" ? "bg-success/15 text-success" : ""}`}
                       >
                         {item.status}
                       </Badge>

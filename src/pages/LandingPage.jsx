@@ -36,7 +36,7 @@ const LandingPage = () => {
           </h1>
           <p className="mx-auto mb-10 max-w-xl text-lg text-muted-foreground">
             Scan your receipt, tag what each person ate, and get an instant fair breakdown. 
-            Perfect for hotpot, BBQ, or any shared meal.
+            Perfect for any shared bill.
           </p>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link to="/register">
@@ -70,8 +70,8 @@ const LandingPage = () => {
               },
               {
                 icon: Users,
-                title: "Assign diners",
-                desc: "Tag who ate what — shared items split evenly among tagged people.",
+                title: "Assign people",
+                desc: "Tag who used what — shared items split evenly among tagged people.",
               },
               {
                 icon: Calculator,
@@ -94,21 +94,6 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Social proof */}
-      <section className="py-20">
-        <div className="container mx-auto px-4 text-center">
-          <div className="mb-3 flex items-center justify-center gap-1">
-            {[...Array(5)].map((_, i) => (
-              <Star key={i} className="h-5 w-5 fill-accent text-accent" />
-            ))}
-          </div>
-          <p className="mx-auto mb-2 max-w-md text-lg font-semibold text-foreground">
-            "Finally an app that settles the hotpot bill in seconds!"
-          </p>
-          <p className="text-sm text-muted-foreground">— Happy SplitPot user</p>
-        </div>
-      </section>
-
       {/* Footer */}
       <footer className="border-t py-8">
         <div className="container mx-auto flex flex-col items-center gap-2 px-4 text-sm text-muted-foreground">
@@ -116,7 +101,7 @@ const LandingPage = () => {
             <Flame className="h-4 w-4 text-primary" />
             <span className="font-semibold text-foreground">SplitPot</span>
           </div>
-          <p>© 2026 SplitPot. Pay only for what you eat.</p>
+          <p>© 2026 SplitPot. Pay only for what you used.</p>
         </div>
       </footer>
     </div>

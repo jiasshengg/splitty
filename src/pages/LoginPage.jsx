@@ -46,7 +46,7 @@ const LoginPage = () => {
           </CardContent>
           <CardFooter className="justify-center">
             <p className="text-sm text-muted-foreground">
-              Don't have an account?{" "}
+              Don't have an account? {" "}
               <Link to="/register" className="font-semibold text-primary hover:underline">
                 Sign up
               </Link>

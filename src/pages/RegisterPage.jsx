@@ -33,6 +33,10 @@ const RegisterPage = () => {
               </div>
             </div>
             <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input id="username" placeholder="JohnDoe" />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" placeholder="you@example.com" />
             </div>
