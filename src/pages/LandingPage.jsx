@@ -35,7 +35,7 @@ const LandingPage = () => {
             <span className="text-primary">not the friendship.</span>
           </h1>
           <p className="mx-auto mb-10 max-w-xl text-lg text-muted-foreground">
-            Scan your receipt, tag what each person ate, and get an instant fair breakdown. 
+            Scan your receipt, tag what each person used, and get an instant fair breakdown. 
             Perfect for any shared bill.
           </p>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
