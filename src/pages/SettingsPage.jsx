@@ -4,23 +4,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Flame, ArrowLeft, Moon, Bell, Globe, Shield, Smartphone } from "lucide-react";
+import { ArrowLeft, Moon, Bell, Globe, Shield } from "lucide-react";
 import { useTheme } from "@/context/ThemeContext";
+import AppNavbar from "@/components/AppNavbar";
 
 const SettingsPage = () => {
   const { isDark, toggleTheme } = useTheme();
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Nav */}
-      <nav className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-md">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <Link to="/" className="flex items-center gap-2">
-            <Flame className="h-7 w-7 text-primary" />
-            <span className="text-xl font-extrabold text-foreground">SplitPot</span>
-          </Link>
-        </div>
-      </nav>
+      <AppNavbar />
 
       <div className="container mx-auto max-w-2xl px-4 py-8">
         <Link to="/profile" className="mb-6 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
@@ -31,7 +24,6 @@ const SettingsPage = () => {
         <h1 className="mb-2 text-3xl font-extrabold text-foreground">Settings</h1>
         <p className="mb-8 text-muted-foreground">Manage your app preferences</p>
 
-        {/* Appearance */}
         <Card className="mb-6 border shadow-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg font-bold">
@@ -51,7 +43,6 @@ const SettingsPage = () => {
           </CardContent>
         </Card>
 
-        {/* Notifications */}
         <Card className="mb-6 border shadow-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg font-bold">
@@ -79,7 +70,6 @@ const SettingsPage = () => {
           </CardContent>
         </Card>
 
-        {/* General */}
         <Card className="mb-6 border shadow-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg font-bold">
@@ -107,7 +97,6 @@ const SettingsPage = () => {
           </CardContent>
         </Card>
 
-        {/* Privacy */}
         <Card className="border shadow-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg font-bold">

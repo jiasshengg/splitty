@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Flame,
   ArrowLeft,
   Plus,
   Trash2,
@@ -29,6 +28,7 @@ import {
   saveBillToHistory,
 } from "@/lib/bills";
 import { scanReceiptImages } from "@/lib/receiptScanner";
+import AppNavbar from "@/components/AppNavbar";
 
 const memberColors = [
   "bg-primary",
@@ -332,21 +332,7 @@ const SplitPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <nav className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-md">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <Link to="/" className="flex items-center gap-2">
-            <Flame className="h-7 w-7 text-primary" />
-            <span className="text-xl font-extrabold text-foreground">
-              SplitPot
-            </span>
-          </Link>
-          <Link to="/profile">
-            <Button variant="ghost" size="sm">
-              Profile
-            </Button>
-          </Link>
-        </div>
-      </nav>
+      <AppNavbar />
 
       <div className="container mx-auto max-w-5xl px-4 py-6 sm:py-8">
         <Link
@@ -491,7 +477,6 @@ const SplitPage = () => {
                     ref={receiptImageInputRef}
                     type="file"
                     accept="image/*"
-                    capture="environment"
                     multiple
                     className="hidden"
                     onChange={handleReceiptImageChange}

@@ -14,11 +14,9 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Flame,
   ArrowLeft,
   Receipt,
   Calendar,
-  LogOut,
   Settings,
   DollarSign,
 } from "lucide-react";
@@ -28,6 +26,7 @@ import {
   formatCurrency,
   getStoredBills,
 } from "@/lib/bills";
+import AppNavbar from "@/components/AppNavbar";
 
 const ReceiptHistoryRow = ({ bill, onViewDetails, showSeparator = false }) => (
   <div>
@@ -159,26 +158,7 @@ const ProfilePage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <nav className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-md">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <Link to="/" className="flex items-center gap-2">
-            <Flame className="h-7 w-7 text-primary" />
-            <span className="text-xl font-extrabold text-foreground">SplitPot</span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <Link to="/split">
-              <Button size="sm" className="gap-1.5 font-semibold">
-                <Receipt className="h-4 w-4" />
-                <span className="hidden sm:inline">New Split</span>
-              </Button>
-            </Link>
-            <Button variant="ghost" size="sm" className="flex-1 gap-1.5 text-destructive hover:text-destructive sm:flex-none">
-              <LogOut className="h-4 w-4" />
-              Log out
-            </Button>
-          </div>
-        </div>
-      </nav>
+      <AppNavbar />
 
       <div className="container mx-auto max-w-4xl px-4 py-6 sm:py-8">
         <Link to="/" className="mb-6 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
