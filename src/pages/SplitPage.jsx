@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,52 +19,139 @@ import {
   Users,
   PencilLine,
   Save,
+  Camera,
+  Loader2,
 } from "lucide-react";
-import { calculateMemberTotals, calculateUnassignedTotal, formatCurrency, saveBillToHistory } from "@/lib/bills";
+import {
+  calculateMemberTotals,
+  calculateUnassignedTotal,
+  formatCurrency,
+  saveBillToHistory,
+} from "@/lib/bills";
+import { scanReceiptImages } from "@/lib/receiptScanner";
 
-const memberColors = ["bg-primary", "bg-accent", "bg-success", "bg-orange-500", "bg-violet-500", "bg-pink-500"];
+const memberColors = [
+  "bg-primary",
+  "bg-accent",
+  "bg-success",
+  "bg-orange-500",
+  "bg-violet-500",
+  "bg-pink-500",
+];
 
 const initialMembers = [];
-
 const initialItems = [];
 
+const maxInputLength = 20;
+const maxPriceDecimals = 5;
+const maxVisibleUiTextLength = 12;
+
+const createId = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
 const createMember = (name, index) => ({
-  id: Date.now() + index,
+  id: createId(),
   name,
   color: memberColors[index % memberColors.length],
 });
 
 const createItem = (name, price) => ({
-  id: Date.now(),
+  id: createId(),
   name,
   price,
   assignedTo: [],
 });
 
-const normalizeMemberName = (name) => name.trim().replace(/\s+/g, " ").toLowerCase();
+const normalizeMemberName = (name) =>
+  String(name)
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
 
 const formatMemberName = (name) =>
-  name
+  String(name)
     .trim()
     .replace(/\s+/g, " ")
     .toLowerCase()
     .replace(/\b\w/g, (char) => char.toUpperCase());
 
+const limitTextLength = (value, length = maxInputLength) =>
+  String(value ?? "").slice(0, length);
+
+const truncateTextForUi = (value, length = maxVisibleUiTextLength) => {
+  const text = String(value ?? "").trim();
+
+  if (text.length <= length) {
+    return text;
+  }
+
+  return `${text.slice(0, length)}....`;
+};
+
+const sanitizePriceInput = (value) => {
+  if (value === "") {
+    return "";
+  }
+
+  const cleanedValue = String(value).replace(/[^\d.]/g, "");
+  const firstDotIndex = cleanedValue.indexOf(".");
+
+  let integerPart =
+    firstDotIndex === -1 ? cleanedValue : cleanedValue.slice(0, firstDotIndex);
+  let decimalPart =
+    firstDotIndex === -1
+      ? ""
+      : cleanedValue.slice(firstDotIndex + 1).replace(/\./g, "");
+
+  decimalPart = decimalPart.slice(0, maxPriceDecimals);
+
+  const maxIntegerLength = decimalPart
+    ? Math.max(1, maxInputLength - decimalPart.length - 1)
+    : maxInputLength;
+
+  integerPart = integerPart.slice(0, maxIntegerLength);
+
+  if (firstDotIndex !== -1) {
+    return `${integerPart || "0"}.${decimalPart}`;
+  }
+
+  return integerPart;
+};
+
 const SplitPage = () => {
-  const [billName, setBillName] = useState("Korean BBQ Night");
+  const [billName, setBillName] = useState("");
   const [members, setMembers] = useState(initialMembers);
   const [items, setItems] = useState(initialItems);
   const [newMemberName, setNewMemberName] = useState("");
   const [newItemName, setNewItemName] = useState("");
   const [newItemPrice, setNewItemPrice] = useState("");
+  const [isScanningReceipts, setIsScanningReceipts] = useState(false);
+  const receiptImageInputRef = useRef(null);
 
-  const totalsByMember = useMemo(() => calculateMemberTotals(items, members), [items, members]);
-  const total = useMemo(() => items.reduce((sum, item) => sum + Number(item.price || 0), 0), [items]);
-  const unassignedTotal = useMemo(() => calculateUnassignedTotal(items), [items]);
+  const totalsByMember = useMemo(
+    () => calculateMemberTotals(items, members),
+    [items, members]
+  );
+
+  const total = useMemo(
+    () => items.reduce((sum, item) => sum + Number(item.price || 0), 0),
+    [items]
+  );
+
+  const unassignedTotal = useMemo(
+    () => calculateUnassignedTotal(items),
+    [items]
+  );
 
   const handleAddMember = () => {
-    const cleanedName = formatMemberName(newMemberName);
-    const normalizedNewName = normalizeMemberName(newMemberName);
+    const limitedName = limitTextLength(newMemberName);
+    const cleanedName = formatMemberName(limitedName);
+    const normalizedNewName = normalizeMemberName(limitedName);
 
     if (!cleanedName) {
       toast.error("Enter a person name first.");
@@ -72,7 +159,7 @@ const SplitPage = () => {
     }
 
     const nameExists = members.some(
-      (member) => normalizeMemberName(member.name) === normalizedNewName,
+      (member) => normalizeMemberName(member.name) === normalizedNewName
     );
 
     if (nameExists) {
@@ -91,13 +178,13 @@ const SplitPage = () => {
       current.map((item) => ({
         ...item,
         assignedTo: item.assignedTo.filter((id) => id !== memberId),
-      })),
+      }))
     );
   };
 
   const handleAddItem = () => {
-    const trimmedName = newItemName.trim();
-    const parsedPrice = Number(newItemPrice);
+    const trimmedName = limitTextLength(newItemName).trim();
+    const parsedPrice = Number(sanitizePriceInput(newItemPrice));
 
     if (!trimmedName) {
       toast.error("Enter an item name first.");
@@ -118,6 +205,16 @@ const SplitPage = () => {
     setItems((current) => current.filter((item) => item.id !== itemId));
   };
 
+  const handleClearItems = () => {
+    if (items.length === 0) {
+      toast.error("There are no items to clear.");
+      return;
+    }
+
+    setItems([]);
+    toast.success("All items cleared.");
+  };
+
   const handleItemFieldChange = (itemId, field, value) => {
     setItems((current) =>
       current.map((item) => {
@@ -125,11 +222,18 @@ const SplitPage = () => {
           return item;
         }
 
+        if (field === "price") {
+          return {
+            ...item,
+            price: Number(sanitizePriceInput(value) || 0),
+          };
+        }
+
         return {
           ...item,
-          [field]: field === "price" ? Number(value || 0) : value,
+          [field]: limitTextLength(value),
         };
-      }),
+      })
     );
   };
 
@@ -148,8 +252,55 @@ const SplitPage = () => {
             ? item.assignedTo.filter((id) => id !== memberId)
             : [...item.assignedTo, memberId],
         };
-      }),
+      })
     );
+  };
+
+  const handleReceiptImageButtonClick = () => {
+    receiptImageInputRef.current?.click();
+  };
+
+  const handleReceiptImageChange = async (event) => {
+    const files = Array.from(event.target.files || []);
+
+    if (files.length === 0) {
+      return;
+    }
+
+    setIsScanningReceipts(true);
+
+    try {
+      const { items: scannedItems, scannedImages, extractedCount } =
+        await scanReceiptImages(files);
+
+      if (scannedItems.length === 0) {
+        toast.error("No receipt items were detected. Try a clearer photo.");
+        return;
+      }
+
+      setItems((current) => [
+        ...current,
+        ...scannedItems.map((item) =>
+          createItem(
+            limitTextLength(String(item.name || "")),
+            Number(sanitizePriceInput(String(item.price || 0)) || 0)
+          )
+        ),
+      ]);
+
+      toast.success(
+        `Added ${extractedCount} item${
+          extractedCount === 1 ? "" : "s"
+        } from ${scannedImages} photo${scannedImages === 1 ? "" : "s"}.`
+      );
+    } catch (error) {
+      toast.error(
+        error.message || "Unable to scan the selected receipt photos."
+      );
+    } finally {
+      setIsScanningReceipts(false);
+      event.target.value = "";
+    }
   };
 
   const handleSaveBill = () => {
@@ -185,23 +336,34 @@ const SplitPage = () => {
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <Link to="/" className="flex items-center gap-2">
             <Flame className="h-7 w-7 text-primary" />
-            <span className="text-xl font-extrabold text-foreground">SplitPot</span>
+            <span className="text-xl font-extrabold text-foreground">
+              SplitPot
+            </span>
           </Link>
           <Link to="/profile">
-            <Button variant="ghost" size="sm">Profile</Button>
+            <Button variant="ghost" size="sm">
+              Profile
+            </Button>
           </Link>
         </div>
       </nav>
 
       <div className="container mx-auto max-w-5xl px-4 py-6 sm:py-8">
-        <Link to="/" className="mb-6 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <Link
+          to="/"
+          className="mb-6 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
           <ArrowLeft className="h-4 w-4" />
           Back
         </Link>
 
         <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl font-extrabold text-foreground sm:text-3xl">Split a Receipt</h1>
-          <p className="text-sm text-muted-foreground sm:text-base">Name the bill, add items, assign people, and see who owes what.</p>
+          <h1 className="text-2xl font-extrabold text-foreground sm:text-3xl">
+            Split a Receipt
+          </h1>
+          <p className="text-sm text-muted-foreground sm:text-base">
+            Name the bill, add items, assign people, and see who owes what.
+          </p>
         </div>
 
         <div className="grid gap-6 sm:gap-8 lg:grid-cols-3">
@@ -210,17 +372,20 @@ const SplitPage = () => {
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base font-bold">
                   <PencilLine className="h-5 w-5 text-primary" />
-                  Bill Details
+                  Receipt Details
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="bill-name">Bill name</Label>
+                  <Label htmlFor="receipt-name">Receipt name</Label>
                   <Input
-                    id="bill-name"
+                    id="receipt-name"
                     value={billName}
-                    onChange={(event) => setBillName(event.target.value)}
-                    placeholder="e.g. Seoul Garden dinner"
+                    onChange={(event) =>
+                      setBillName(limitTextLength(event.target.value))
+                    }
+                    maxLength={maxInputLength}
+                    placeholder="e.g. Seoul Garden"
                   />
                 </div>
               </CardContent>
@@ -235,11 +400,19 @@ const SplitPage = () => {
                 <div className="flex w-full gap-2 sm:w-auto">
                   <Input
                     value={newMemberName}
-                    onChange={(event) => setNewMemberName(event.target.value)}
+                    onChange={(event) =>
+                      setNewMemberName(limitTextLength(event.target.value))
+                    }
+                    maxLength={maxInputLength}
                     placeholder="Add a person"
                     className="sm:w-48"
                   />
-                  <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleAddMember}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-xs"
+                    onClick={handleAddMember}
+                  >
                     <UserPlus className="h-3.5 w-3.5" />
                     Add
                   </Button>
@@ -251,14 +424,21 @@ const SplitPage = () => {
                     <Badge
                       key={member.id}
                       variant="secondary"
-                      className="gap-1.5 px-3 py-1.5 text-sm font-medium"
+                      className="max-w-full gap-1.5 px-3 py-1.5 text-sm font-medium"
                     >
-                      <span className={`inline-block h-2.5 w-2.5 rounded-full ${member.color}`} />
-                      {member.name}
+                      <span
+                        className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${member.color}`}
+                      />
+                      <span
+                        className="max-w-[100px] truncate"
+                        title={member.name}
+                      >
+                        {truncateTextForUi(member.name)}
+                      </span>
                       <button
                         type="button"
                         onClick={() => handleRemoveMember(member.id)}
-                        className="ml-1 text-muted-foreground transition-colors hover:text-destructive"
+                        className="ml-1 shrink-0 text-muted-foreground transition-colors hover:text-destructive"
                         aria-label={`Remove ${member.name}`}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -271,30 +451,89 @@ const SplitPage = () => {
 
             <Card className="border shadow-md">
               <CardHeader className="flex flex-col gap-3 pb-3">
-                <div className="flex items-center gap-2">
-                  <Receipt className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-base font-bold">Receipt Items</CardTitle>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Receipt className="h-5 w-5 text-primary" />
+                    <CardTitle className="text-base font-bold">
+                      Receipt Items
+                    </CardTitle>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0 gap-1.5"
+                      onClick={handleClearItems}
+                      disabled={isScanningReceipts || items.length === 0}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Clear
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="shrink-0"
+                      onClick={handleReceiptImageButtonClick}
+                      disabled={isScanningReceipts}
+                      aria-label="Upload or take receipt photos"
+                      title="Upload or take receipt photos"
+                    >
+                      {isScanningReceipts ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Camera className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <input
+                    ref={receiptImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    multiple
+                    className="hidden"
+                    onChange={handleReceiptImageChange}
+                  />
                 </div>
+
+                <p className="text-xs text-muted-foreground">
+                  Upload or take one or more receipt photos to auto-add new
+                  rows. Existing rows stay untouched.
+                </p>
+
                 <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px_auto]">
                   <Input
                     value={newItemName}
-                    onChange={(event) => setNewItemName(event.target.value)}
+                    onChange={(event) =>
+                      setNewItemName(limitTextLength(event.target.value))
+                    }
+                    maxLength={maxInputLength}
                     placeholder="Add item"
                   />
                   <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
+                    type="text"
+                    inputMode="decimal"
                     value={newItemPrice}
-                    onChange={(event) => setNewItemPrice(event.target.value)}
+                    onChange={(event) =>
+                      setNewItemPrice(sanitizePriceInput(event.target.value))
+                    }
+                    maxLength={maxInputLength}
                     placeholder="Price"
                   />
-                  <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleAddItem}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-xs"
+                    onClick={handleAddItem}
+                  >
                     <Plus className="h-3.5 w-3.5" />
                     Add item
                   </Button>
                 </div>
               </CardHeader>
+
               <CardContent className="p-0">
                 <div className="hidden grid-cols-12 gap-2 border-b bg-muted/40 px-6 py-2.5 text-xs font-semibold uppercase text-muted-foreground sm:grid">
                   <div className="col-span-4">Item</div>
@@ -311,35 +550,58 @@ const SplitPage = () => {
                       <div className="col-span-4">
                         <Input
                           value={item.name}
-                          onChange={(event) => handleItemFieldChange(item.id, "name", event.target.value)}
+                          onChange={(event) =>
+                            handleItemFieldChange(
+                              item.id,
+                              "name",
+                              event.target.value
+                            )
+                          }
+                          maxLength={maxInputLength}
                           className="h-9"
                         />
                       </div>
+
                       <div className="col-span-2 text-right">
                         <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
+                          type="text"
+                          inputMode="decimal"
                           value={item.price}
-                          onChange={(event) => handleItemFieldChange(item.id, "price", event.target.value)}
+                          onChange={(event) =>
+                            handleItemFieldChange(
+                              item.id,
+                              "price",
+                              event.target.value
+                            )
+                          }
+                          maxLength={maxInputLength}
                           className="h-9 text-right"
                         />
                       </div>
+
                       <div className="col-span-5 flex flex-wrap gap-1.5">
                         {members.map((member) => (
                           <label
                             key={member.id}
-                            className="flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors hover:bg-muted/60"
+                            className="flex max-w-full cursor-pointer items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors hover:bg-muted/60"
                           >
                             <Checkbox
                               checked={item.assignedTo.includes(member.id)}
-                              onCheckedChange={() => toggleAssignment(item.id, member.id)}
-                              className="h-3.5 w-3.5"
+                              onCheckedChange={() =>
+                                toggleAssignment(item.id, member.id)
+                              }
+                              className="h-3.5 w-3.5 shrink-0"
                             />
-                            <span>{member.name}</span>
+                            <span
+                              className="max-w-[72px] truncate"
+                              title={member.name}
+                            >
+                              {truncateTextForUi(member.name)}
+                            </span>
                           </label>
                         ))}
                       </div>
+
                       <div className="col-span-1 flex justify-end">
                         <Button
                           variant="ghost"
@@ -356,38 +618,59 @@ const SplitPage = () => {
                       <div className="grid gap-2">
                         <Input
                           value={item.name}
-                          onChange={(event) => handleItemFieldChange(item.id, "name", event.target.value)}
+                          onChange={(event) =>
+                            handleItemFieldChange(
+                              item.id,
+                              "name",
+                              event.target.value
+                            )
+                          }
+                          maxLength={maxInputLength}
                         />
                         <div className="flex items-center gap-2">
                           <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
+                            type="text"
+                            inputMode="decimal"
                             value={item.price}
-                            onChange={(event) => handleItemFieldChange(item.id, "price", event.target.value)}
+                            onChange={(event) =>
+                              handleItemFieldChange(
+                                item.id,
+                                "price",
+                                event.target.value
+                              )
+                            }
+                            maxLength={maxInputLength}
                           />
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                            className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
                             onClick={() => handleRemoveItem(item.id)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
+
                       <div className="flex flex-wrap gap-1.5">
                         {members.map((member) => (
                           <label
                             key={member.id}
-                            className="flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors hover:bg-muted/60"
+                            className="flex max-w-full cursor-pointer items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors hover:bg-muted/60"
                           >
                             <Checkbox
                               checked={item.assignedTo.includes(member.id)}
-                              onCheckedChange={() => toggleAssignment(item.id, member.id)}
-                              className="h-3.5 w-3.5"
+                              onCheckedChange={() =>
+                                toggleAssignment(item.id, member.id)
+                              }
+                              className="h-3.5 w-3.5 shrink-0"
                             />
-                            <span>{member.name}</span>
+                            <span
+                              className="max-w-[72px] truncate"
+                              title={member.name}
+                            >
+                              {truncateTextForUi(member.name)}
+                            </span>
                           </label>
                         ))}
                       </div>
@@ -403,23 +686,43 @@ const SplitPage = () => {
               <CardHeader className="pb-4">
                 <CardTitle className="flex items-center gap-2 text-base font-bold">
                   <DollarSign className="h-5 w-5 text-primary" />
-                  Bill Summary
+                  Summary
                 </CardTitle>
               </CardHeader>
+
               <CardContent className="space-y-4">
                 <div className="rounded-xl bg-muted/50 p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Bill name</p>
-                  <p className="mt-1 text-base font-semibold text-foreground">{billName.trim() || "Untitled bill"}</p>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Bill name
+                  </p>
+                  <p
+                    className="mt-1 truncate text-base font-semibold text-foreground"
+                    title={billName.trim() || "Untitled"}
+                  >
+                    {truncateTextForUi(billName.trim() || "Untititled")}
+                  </p>
                 </div>
 
                 <div className="space-y-3">
                   {totalsByMember.map((member) => (
-                    <div key={member.id} className="flex items-center justify-between rounded-lg border px-3 py-2.5">
-                      <div className="flex items-center gap-2">
-                        <span className={`h-2.5 w-2.5 rounded-full ${member.color}`} />
-                        <span className="text-sm font-medium text-foreground">{member.name}</span>
+                    <div
+                      key={member.id}
+                      className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5"
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span
+                          className={`h-2.5 w-2.5 shrink-0 rounded-full ${member.color}`}
+                        />
+                        <span
+                          className="truncate text-sm font-medium text-foreground"
+                          title={member.name}
+                        >
+                          {truncateTextForUi(member.name)}
+                        </span>
                       </div>
-                      <span className="text-sm font-bold text-foreground">{formatCurrency(member.total)}</span>
+                      <span className="shrink-0 text-sm font-bold text-foreground">
+                        {formatCurrency(member.total)}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -429,19 +732,27 @@ const SplitPage = () => {
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center justify-between text-muted-foreground">
                     <span>Total bill</span>
-                    <span className="font-semibold text-foreground">{formatCurrency(total)}</span>
+                    <span className="font-semibold text-foreground">
+                      {formatCurrency(total)}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between text-muted-foreground">
                     <span>People</span>
-                    <span className="font-semibold text-foreground">{members.length}</span>
+                    <span className="font-semibold text-foreground">
+                      {members.length}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between text-muted-foreground">
                     <span>Items</span>
-                    <span className="font-semibold text-foreground">{items.length}</span>
+                    <span className="font-semibold text-foreground">
+                      {items.length}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between text-muted-foreground">
                     <span>Unassigned amount</span>
-                    <span className="font-semibold text-foreground">{formatCurrency(unassignedTotal)}</span>
+                    <span className="font-semibold text-foreground">
+                      {formatCurrency(unassignedTotal)}
+                    </span>
                   </div>
                 </div>
 
