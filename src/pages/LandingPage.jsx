@@ -82,7 +82,9 @@ const LandingPage = () => {
             <Flame className="h-4 w-4 text-primary" />
             <span className="font-semibold text-foreground">SplitPot</span>
           </div>
-          <p>© 2026 SplitPot. Pay only for what you used.</p>
+          <p className="text-center">
+            © 2026 SplitPot. Pay only for what you used.
+          </p>
         </div>
       </footer>
     </div>

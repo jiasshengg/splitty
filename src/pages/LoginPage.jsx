@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +14,46 @@ import {
 import AppNavbar from '@/components/AppNavbar';
 
 const LoginPage = () => {
+  const messageRef = useRef(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const showMessage = (text, type = 'error') => {
+    if (!messageRef.current) return;
+
+    messageRef.current.textContent = text;
+    messageRef.current.className =
+      type === 'error'
+        ? 'text-sm font-medium text-destructive'
+        : 'text-sm font-medium text-green-600';
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    const formData = new FormData(e.target);
+
+    const email = formData.get('email')?.toString().trim();
+    const password = formData.get('password')?.toString();
+
+    if (!email || !password) {
+      showMessage('Please fill in all fields.', 'error');
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      // simulate delay
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      e.target.reset();
+    } catch (error) {
+      showMessage('Something went wrong. Please try again.', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-muted/30">
       <AppNavbar />
@@ -24,29 +65,38 @@ const LoginPage = () => {
               <CardTitle className="text-2xl font-extrabold">Welcome back</CardTitle>
               <CardDescription>Log in to manage your splits</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="you@example.com" />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Password</Label>
-                  <button className="text-xs font-medium text-primary hover:underline">
-                    Forgot password?
-                  </button>
+
+            <form onSubmit={handleSubmit}>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" name="email" type="email" placeholder="you@example.com" required />
                 </div>
-                <Input id="password" type="password" placeholder="••••••••" />
-              </div>
-              <Button className="w-full font-semibold" size="lg">
-                Log in
-              </Button>
-              <div className="relative my-2">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t" />
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Password</Label>
+                    <button type="button" className="text-xs font-medium text-primary hover:underline">
+                      Forgot password?
+                    </button>
+                  </div>
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    placeholder="••••••••"
+                    required
+                  />
                 </div>
-              </div>
-            </CardContent>
+
+                <p ref={messageRef} className="text-sm font-medium" />
+
+                <Button type="submit" className="w-full font-semibold" size="lg" disabled={isLoading}>
+                  {isLoading ? 'Logging in...' : 'Log in'}
+                </Button>
+              </CardContent>
+            </form>
+
             <CardFooter className="justify-center">
               <p className="text-sm text-muted-foreground">
                 Don't have an account?{' '}
