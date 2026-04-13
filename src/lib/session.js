@@ -1,7 +1,7 @@
 export async function checkSession() {
-  return false;
+  return true;
 }
 
 export async function logoutSession() {
-  return true;
+  return false;
 }
