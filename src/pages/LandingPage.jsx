@@ -30,7 +30,7 @@ const LandingPage = () => {
             </Link>
             <Link to="/split">
               <Button size="lg" variant="outline" className="gap-2 px-8 text-base font-semibold">
-                Try a demo split
+                Try now
               </Button>
             </Link>
           </div>
