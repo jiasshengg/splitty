@@ -1,4 +1,3 @@
-const baseUrl = 'http://localhost:3001';
 
 export const scanReceiptImages = async (files = []) => {
   if (!Array.isArray(files) || files.length === 0) {
@@ -15,7 +14,7 @@ export const scanReceiptImages = async (files = []) => {
     formData.append('images', file);
   });
 
-  const response = await fetch(`${baseUrl}/scan/receipt`, {
+  const response = await fetch('/api/scan/receipt', {
     method: 'POST',
     body: formData,
   });

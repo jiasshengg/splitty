@@ -16,7 +16,7 @@ app.get('/health', function (req, res) {
   res.json({ ok: true });
 });
 
-app.use('/scan', scannerRouter);
+app.use('/api/scan', scannerRouter);
 
 app.use(function (req, res) {
   res.status(404).json({
