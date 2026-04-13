@@ -32,11 +32,11 @@ import AppNavbar from "@/components/AppNavbar";
 
 const memberColors = [
   "bg-primary",
-  "bg-accent",
+  "bg-sky-500",
   "bg-success",
-  "bg-orange-500",
+  "bg-cyan-500",
   "bg-violet-500",
-  "bg-pink-500",
+  "bg-indigo-500",
 ];
 
 const initialMembers = [];
@@ -335,14 +335,6 @@ const SplitPage = () => {
       <AppNavbar />
 
       <div className="container mx-auto max-w-5xl px-4 py-6 sm:py-8">
-        <Link
-          to="/"
-          className="mb-6 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Link>
-
         <div className="mb-6 sm:mb-8">
           <h1 className="text-2xl font-extrabold text-foreground sm:text-3xl">
             Split a Receipt
@@ -599,8 +591,8 @@ const SplitPage = () => {
                       </div>
                     </div>
 
-                    <div className="space-y-3 px-4 py-3 sm:hidden">
-                      <div className="grid gap-2">
+                    <div className="space-y-3 px-6 py-3 sm:hidden">
+                      <div className="grid grid-cols-[minmax(0,1fr)_40px] gap-2">
                         <Input
                           value={item.name}
                           onChange={(event) =>
@@ -610,27 +602,31 @@ const SplitPage = () => {
                               event.target.value
                             )
                           }
+                          placeholder="Item name"
+                          maxLength={maxInputLength}
+                          className="col-span-2"
+                        />
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          value={item.price}
+                          onChange={(event) =>
+                            handleItemFieldChange(
+                              item.id,
+                              "price",
+                              event.target.value
+                            )
+                          }
+                          placeholder="Price"
                           maxLength={maxInputLength}
                         />
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="text"
-                            inputMode="decimal"
-                            value={item.price}
-                            onChange={(event) =>
-                              handleItemFieldChange(
-                                item.id,
-                                "price",
-                                event.target.value
-                              )
-                            }
-                            maxLength={maxInputLength}
-                          />
+                        <div className="flex items-center justify-end">
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
                             onClick={() => handleRemoveItem(item.id)}
+                            aria-label={`Remove ${item.name || "item"}`}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
