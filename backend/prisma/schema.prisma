@@ -14,4 +14,35 @@ model user {
   password   String    @db.VarChar(255)
   created_at DateTime  @default(now()) @db.Timestamptz(6)
   updated_at DateTime? @db.Timestamptz(6)
+  bills      bills[]
+}
+
+model bill_item_assignments {
+  id             Int @id @default(autoincrement())
+  item_id        Int
+  participant_id Int
+
+  @@unique([item_id, participant_id])
+}
+
+model bill_items {
+  id        Int     @id @default(autoincrement())
+  bill_id   Int
+  item_name String  @db.VarChar(30)
+  price     Decimal @db.Decimal(10, 2)
+}
+
+model bill_participants {
+  id      Int    @id @default(autoincrement())
+  bill_id Int
+  name    String @db.VarChar(255)
+}
+
+model bills {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  bill_name  String   @db.VarChar(255)
+  total_amt  Decimal  @db.Decimal(10, 2)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  user       user     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "constraint_1")
 }
