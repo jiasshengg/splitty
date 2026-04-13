@@ -27,6 +27,7 @@ import {
   getStoredBills,
 } from "@/lib/bills";
 import AppNavbar from "@/components/AppNavbar";
+import { getAccountDisplayName, getAccountInitials, getStoredAccount } from "@/lib/account";
 
 const ReceiptHistoryRow = ({ bill, onViewDetails, showSeparator = false }) => (
   <div>
@@ -132,6 +133,7 @@ const ProfilePage = () => {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [selectedBill, setSelectedBill] = useState(null);
   const history = useMemo(() => getStoredBills(), []);
+  const account = useMemo(() => getStoredAccount(), []);
 
   const totalSpent = useMemo(
     () => history.reduce((sum, bill) => sum + Number(bill.total || 0), 0),
@@ -173,12 +175,12 @@ const ProfilePage = () => {
               <Avatar className="-mt-10 h-16 w-16 border-4 border-card shadow-md sm:h-20 sm:w-20">
                 <AvatarImage src="" />
                 <AvatarFallback className="bg-primary text-lg font-bold text-primary-foreground sm:text-xl">
-                  JD
+                  {getAccountInitials(account)}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1">
-                <h1 className="text-xl font-extrabold text-foreground sm:text-2xl">John Doe</h1>
-                <p className="text-sm text-muted-foreground">johndoe@email.com</p>
+                <h1 className="text-xl font-extrabold text-foreground sm:text-2xl">{getAccountDisplayName(account)}</h1>
+                <p className="text-sm text-muted-foreground">@{account.username}</p>
               </div>
               <div className="flex w-full gap-2 sm:w-auto">
                 <Link to="/settings" className="flex-1 sm:flex-none">
