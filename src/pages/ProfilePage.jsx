@@ -163,32 +163,29 @@ const ProfilePage = () => {
       <AppNavbar />
 
       <div className="container mx-auto max-w-4xl px-4 py-6 sm:py-8">
-        <Link to="/" className="mb-6 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" />
-          Back to home
-        </Link>
+        <Card className="mb-6 border shadow-lg sm:mb-8">
+          <CardContent className="relative px-6 py-6 sm:px-8 sm:py-7">
+            <div className="absolute right-4 top-4 sm:right-6 sm:top-5">
+              <Link to="/settings">
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </Button>
+              </Link>
+            </div>
 
-        <Card className="mb-6 overflow-hidden border shadow-lg sm:mb-8">
-          <div className="h-20 bg-gradient-to-r from-primary/80 to-accent/60 sm:h-24" />
-          <CardContent className="relative pb-6 pt-0">
-            <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-end">
-              <Avatar className="-mt-10 h-16 w-16 border-4 border-card shadow-md sm:h-20 sm:w-20">
+            <div className="flex min-h-[72px] items-center gap-4 pr-20 sm:min-h-[80px] sm:gap-5 sm:pr-28">
+              <Avatar className="h-16 w-16 shrink-0 border-4 border-background shadow-md sm:h-20 sm:w-20">
                 <AvatarImage src="" />
                 <AvatarFallback className="bg-primary text-lg font-bold text-primary-foreground sm:text-xl">
                   {getAccountInitials(account)}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex-1">
-                <h1 className="text-xl font-extrabold text-foreground sm:text-2xl">{getAccountDisplayName(account)}</h1>
-                <p className="text-sm text-muted-foreground">@{account.username}</p>
-              </div>
-              <div className="flex w-full gap-2 sm:w-auto">
-                <Link to="/settings" className="flex-1 sm:flex-none">
-                  <Button variant="outline" size="sm" className="w-full gap-1.5">
-                    <Settings className="h-4 w-4" />
-                    Settings
-                  </Button>
-                </Link>
+              <div className="min-w-0 flex-1 text-left">
+                <h1 className="truncate text-xl font-extrabold leading-tight text-foreground sm:text-2xl">
+                  {getAccountDisplayName(account)}
+                </h1>
+                <p className="truncate pt-1 text-sm text-muted-foreground">@{account.username}</p>
               </div>
             </div>
           </CardContent>
