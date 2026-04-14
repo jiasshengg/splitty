@@ -1,4 +1,6 @@
 const bcrypt = require("bcrypt");
+const responseView = require('../views/responseView');
+const { response } = require("express");
 
 const saltRounds = 10;
 
@@ -7,14 +9,13 @@ module.exports.comparePassword = (req, res, next) => {
     
     bcrypt.compare(req.body.password, user.password, (err, isMatch) => {
         if (err) {
-            console.error("Error bcrypt:", err);
-            return res.status(500).json(err);
+            return responseView.sendError(res, "Error comparing passwords", err);
         }
 
         if (isMatch) {
             next();
         } else {
-            return res.status(401).json({ message: "Wrong password" });
+            return responseView.Unauthorized(res, "Incorrect password");
         }
     });
 };
@@ -22,8 +23,7 @@ module.exports.comparePassword = (req, res, next) => {
 module.exports.hashPassword = (req, res, next) => {
     const callback = (err, hash) => {
       if (err) {
-        console.error("Error bcrypt:", err);
-        res.status(500).json(err);
+        return responseView.sendError(res, "Error hashing password", err);
       } else {
         res.locals.hash = hash;
         next();

@@ -1,6 +1,8 @@
 const session = require('express-session');
 const redis = require('redis');
 const { RedisStore } = require('connect-redis');
+const responseView = require('../views/responseView');
+const { response } = require('express');
 
 const nodeEnv = process.env.NODE_ENV || 'development';
 const isProd = nodeEnv === 'production';
@@ -81,10 +83,7 @@ const generateSessionRedisUser = async (req, res) => {
   try {
     const user = res.locals.user;
     if (!user) {
-      return res.status(400).json({
-        success: false,
-        message: 'No user data to create session',
-      });
+      return responseView.BadRequest(res, "No User Data");
     }
 
     const userId = user.id ?? user.user_id;
@@ -98,30 +97,14 @@ const generateSessionRedisUser = async (req, res) => {
     // ensure redis store writes session before sending response
     req.session.save((err) => {
       if (err) {
-        console.error('session.save error:', err);
-        return res.status(500).json({
-          success: false,
-          message: 'Failed to create session',
-          error: err.message,
-        });
+        return responseView.sendError(res, "Failed to create session", err);
       }
 
-      return res.status(200).json({
-        success: true,
-        message: 'Authenticated',
-        data: {
-          username: user.username,
-          role: user.role,
-        },
-      });
+      return responseView.sendSuccess(res, data, "Authenticated");
+
     });
   } catch (error) {
-    console.error('generateSessionRedisUser error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to create session',
-      error: error.message,
-    });
+    return responseView.sendError(res, "Failed to create session", error);
   }
 };
 
@@ -129,10 +112,7 @@ const generateSessionRedisUser = async (req, res) => {
 
 const checkForSessionUser = (req, res, next) => {
   if (!req.session?.user) {
-    return res.status(401).json({
-      success: false,
-      message: 'Please register or login',
-    });
+    return responseView.Unauthorized(res, "Please register or login");
   }
 
   next();
