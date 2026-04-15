@@ -5,12 +5,24 @@ const validator = require('validator');
 const bcrypt = require('bcrypt');
 
 module.exports.getAllUsers = async (req, res) => {
-    try {
-        const users = await userModel.getAllUsers();
-        return responseView.sendSuccess(res, users, 'Fetched all users');
-    } catch (error) {
-        return responseView.sendError(res, 'Failed to fetch users', error);
-    }
+  try {
+      const users = await userModel.getAllUsers();
+      return responseView.sendSuccess(res, users, 'Fetched all users');
+  } catch (error) {
+      return responseView.sendError(res, 'Failed to fetch users', error);
+  }
+};
+
+module.exports.getUserById = async (req, res) => {
+  try {
+      const { id } = req.params;
+      const user = await userModel.getUserById(Number(id));
+
+      if (!user) return responseView.NotFound(res, 'User not found');
+      return responseView.sendSuccess(res, user, 'Fetched user');
+  } catch (error) {
+      return responseView.sendError(res, 'Failed to fetch user', error);
+  }
 };
 
 module.exports.createUser = async (req, res) => {
@@ -23,8 +35,6 @@ module.exports.createUser = async (req, res) => {
       "password",
       "first_name",
       "last_name",
-      "phone_number",
-      "dob",
     ];
 
     for (const field of requiredFields) {
@@ -64,29 +74,46 @@ module.exports.createUser = async (req, res) => {
 };
 
 module.exports.updateUser = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const userData = req.body;
+  try {
+    const { id } = req.params;
+    const userData = req.body;
 
-        const updatedUser = await userModel.updateUser(Number(id), userData);
-        return responseView.sendSuccess(res, updatedUser, 'User updated successfully');
-    } catch (error) {
-        if (error.code === 'P2025') { // Prisma record not found
-            return responseView.NotFound(res, 'User not found');
-        }
-        return responseView.sendError(res, 'Failed to update user', error);
+    const requiredFields = [
+      "email",
+      "username",
+      "password",
+      "first_name",
+      "last_name",
+    ];
+
+    for (const field of requiredFields) {
+      const value = userData[field];
+      if (!value || (typeof value === "string" && value.trim() === "")) {
+        const formattedFieldName =
+          field.charAt(0).toUpperCase() + field.slice(1);
+        return responseView.BadRequest(res, `${formattedFieldName} cannot be empty`);
+      }
     }
+
+      const updatedUser = await userModel.updateUser(Number(id), userData);
+      return responseView.sendSuccess(res, updatedUser, 'User updated successfully');
+  } catch (error) {
+      if (error.code === 'P2025') { // Prisma record not found
+          return responseView.NotFound(res, 'User not found');
+      }
+      return responseView.sendError(res, 'Failed to update user', error);
+  }
 };
 
 module.exports.deleteUser = async (req, res) => {
-    try {
-        const { id } = req.params;
-        await usersModel.deleteUser(Number(id));
-        return responseView.noContent(res, null, 'User deleted successfully');
-    } catch (error) {
-        if (error.code === 'P2025') {
-            return responseView.NotFound(res, 'User not found');
-        }
-        return responseView.sendError(res, 'Failed to delete user', error);
-    }
+  try {
+      const { id } = req.params;
+      await usersModel.deleteUser(Number(id));
+      return responseView.noContent(res, null, 'User deleted successfully');
+  } catch (error) {
+      if (error.code === 'P2025') {
+          return responseView.NotFound(res, 'User not found');
+      }
+      return responseView.sendError(res, 'Failed to delete user', error);
+  }
 };

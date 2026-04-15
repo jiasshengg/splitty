@@ -5,6 +5,12 @@ module.exports.getAllUsers = async function getAllUsers() {
   return prisma.users.findMany();
 };
 
+module.exports.getUserById = async function getUserById(id) {
+  return prisma.users.findUnique({
+    where: { id: id },
+  });
+}
+
 module.exports.createUser = async function createUser(userData) {
   const {
     username,
