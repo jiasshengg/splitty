@@ -95,8 +95,8 @@ module.exports.updateUser = async (req, res) => {
       }
     }
 
-      const updatedUser = await userModel.updateUser(Number(id), userData);
-      return responseView.sendSuccess(res, updatedUser, 'User updated successfully');
+    const updatedUser = await userModel.updateUser(Number(id), userData);
+    return responseView.sendSuccess(res, updatedUser, 'User updated successfully');
   } catch (error) {
       if (error.code === 'P2025') { // Prisma record not found
           return responseView.NotFound(res, 'User not found');
