@@ -9,7 +9,7 @@ router.get('/', userController.getAllUsers);
 
 router.post('/register', bcryptMiddleware.hashPassword, userController.createUser);
 
-router.post('/logout', userController.logoutUser);
+// router.post('/logout', userController.logoutUser);
 
 router.get('/:id', userController.getUserById);
 

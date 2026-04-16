@@ -18,10 +18,10 @@ module.exports.createUser = async function createUser(userData) {
     password,
     first_name,
     last_name,
-    role,
-    } = userData;
+    role = 1,
+  } = userData;
 
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async function (tx) {
     const createdUser = await tx.users.create({
       data: {
         username,
@@ -29,7 +29,14 @@ module.exports.createUser = async function createUser(userData) {
         password,
         first_name,
         last_name,
-        role
+        role,
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        first_name: true,
+        last_name: true,
       },
     });
 
@@ -38,20 +45,29 @@ module.exports.createUser = async function createUser(userData) {
 };
 
 module.exports.updateUser = async function updateUser(id, userData) {
-    const {username, email, first_name, last_name} = userData;
+  const { username, email, first_name, last_name } = userData;
+
   return prisma.users.update({
     where: { id: id },
     data: {
-        username,
-        email,
-        first_name,
-        last_name,
+      username,
+      email,
+      first_name,
+      last_name,
+      updated_at: new Date()
+    },
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      first_name: true,
+      last_name: true,
     },
   });
-}
+};
 
 module.exports.deleteUser = async function deleteUser(id) {
   return prisma.users.delete({
     where: { id: id },
   });
-}
+};

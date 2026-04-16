@@ -1,4 +1,4 @@
-const userModel = require('../models/userMmdel');
+const userModel = require('../models/userModel');
 const sessionMiddleware = require('../middleware/sessionMiddleware');
 const responseView = require('../views/responseView');
 const validator = require('validator');
@@ -81,7 +81,6 @@ module.exports.updateUser = async (req, res) => {
     const requiredFields = [
       "email",
       "username",
-      "password",
       "first_name",
       "last_name",
     ];
@@ -108,7 +107,7 @@ module.exports.updateUser = async (req, res) => {
 module.exports.deleteUser = async (req, res) => {
   try {
       const { id } = req.params;
-      await usersModel.deleteUser(Number(id));
+      await userModel.deleteUser(Number(id));
       return responseView.noContent(res, null, 'User deleted successfully');
   } catch (error) {
       if (error.code === 'P2025') {

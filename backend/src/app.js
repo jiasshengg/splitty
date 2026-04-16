@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const scannerRouter = require('./routers/scannerRouter');
+const userRouter = require('./routers/userRouter');
 
 const app = express();
 
@@ -17,6 +18,7 @@ app.get('/health', function (req, res) {
 });
 
 app.use('/api/scan', scannerRouter);
+app.use('/api/users', userRouter);
 
 app.use(function (req, res) {
   res.status(404).json({
