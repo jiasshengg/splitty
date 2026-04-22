@@ -178,6 +178,8 @@ const ReceiptCard = ({
               </div>
             </div>
 
+            <br></br>
+
             <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px_auto]">
               <Input
                 value={itemDraft.name}
