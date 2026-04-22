@@ -2,7 +2,7 @@
 export const scanReceiptImages = async (files = []) => {
   if (!Array.isArray(files) || files.length === 0) {
     return {
-      items: [],
+      receipts: [],
       scannedImages: 0,
       extractedCount: 0,
     };
@@ -25,8 +25,21 @@ export const scanReceiptImages = async (files = []) => {
     throw new Error(payload?.error || 'Unable to scan receipt images right now.');
   }
 
+  const receipts = Array.isArray(payload?.receipts)
+    ? payload.receipts
+    : Array.isArray(payload?.items)
+      ? [
+          {
+            label: 'Receipt 1',
+            items: payload.items,
+            gst: 0,
+            serviceCharge: 0,
+          },
+        ]
+      : [];
+
   return {
-    items: Array.isArray(payload?.items) ? payload.items : [],
+    receipts,
     scannedImages: Number(payload?.scannedImages || files.length),
     extractedCount: Number(payload?.extractedCount || 0),
   };
