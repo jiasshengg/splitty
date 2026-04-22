@@ -54,27 +54,25 @@ const ReceiptCard = ({
     >
       <div className="bg-card">
         <div className="border-b bg-muted/20 px-4 py-3 sm:px-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2">
                 <p
                   className="truncate text-sm font-semibold text-foreground sm:text-base"
                   title={receiptTitle}
                 >
                   {receiptTitle}
                 </p>
-                <br></br>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                  <span>GST {formatCurrency(receiptSummary.gst)}</span>
-                  <span>Service {formatCurrency(receiptSummary.serviceCharge)}</span>
-                  <span className="font-semibold text-foreground">
-                    Total {formatCurrency(receiptSummary.total)}
-                  </span>
-                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                <span className="text-foreground">
+                  Total {formatCurrency(receiptSummary.total)}
+                </span>
               </div>
             </div>
 
-            <div className="flex shrink-0 items-center gap-1 self-end sm:self-start">
+            <div className="flex shrink-0 items-center gap-1">
               <Button
                 type="button"
                 variant="ghost"
