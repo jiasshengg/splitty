@@ -145,7 +145,7 @@ const ReceiptDetails = ({ bill }) => {
                 <div>
                   <p className="font-semibold text-foreground">{receipt.label}</p>
                   <p className="text-xs text-muted-foreground">
-                    GST split: {receipt.gstSplitMode === "byItems" ? "Based on what was used" : "Equally"} · Service split: {receipt.serviceChargeSplitMode === "byItems" ? "Based on what was used" : "Equally"}
+                    GST split: {receipt.gstSplitMode === "byItems" ? "Based on what they ate" : "Equally"} · Service split: Equally
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground sm:text-right">

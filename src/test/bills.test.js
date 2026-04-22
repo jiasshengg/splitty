@@ -19,7 +19,6 @@ describe("calculateBillSummary", () => {
           gst: 3.01,
           serviceCharge: 2,
           gstSplitMode: RECEIPT_SPLIT_MODES.EQUALLY,
-          serviceChargeSplitMode: RECEIPT_SPLIT_MODES.BY_ITEMS,
           items: [
             { id: "i1", name: "Pasta", price: 10, assignedTo: ["a"] },
             { id: "i2", name: "Pizza", price: 20, assignedTo: ["a", "b"] },
@@ -31,7 +30,6 @@ describe("calculateBillSummary", () => {
           gst: 0.99,
           serviceCharge: 1.01,
           gstSplitMode: RECEIPT_SPLIT_MODES.BY_ITEMS,
-          serviceChargeSplitMode: RECEIPT_SPLIT_MODES.EQUALLY,
           items: [
             { id: "i3", name: "Cake", price: 9, assignedTo: ["c"] },
             { id: "i4", name: "Tea", price: 6, assignedTo: ["b", "c"] },
@@ -58,15 +56,15 @@ describe("calculateBillSummary", () => {
         id: "a",
         itemSubtotal: 20,
         gstShare: 1.51,
-        serviceChargeShare: 1.33,
-        total: 22.84,
+        serviceChargeShare: 1,
+        total: 22.51,
       },
       {
         id: "b",
         itemSubtotal: 13,
         gstShare: 1.7,
-        serviceChargeShare: 1.18,
-        total: 15.88,
+        serviceChargeShare: 1.51,
+        total: 16.21,
       },
       {
         id: "c",
@@ -94,7 +92,6 @@ describe("calculateBillSummary", () => {
           gst: 0.5,
           serviceCharge: 0.5,
           gstSplitMode: RECEIPT_SPLIT_MODES.EQUALLY,
-          serviceChargeSplitMode: RECEIPT_SPLIT_MODES.BY_ITEMS,
           items: [{ id: "i1", name: "Fries", price: 5, assignedTo: [] }],
         },
       ],

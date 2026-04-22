@@ -6,14 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Plus,
   Trash2,
@@ -34,6 +26,7 @@ import {
 } from "@/lib/bills";
 import { scanReceiptImages } from "@/lib/receiptScanner";
 import AppNavbar from "@/components/AppNavbar";
+import ReceiptCard from "@/components/ReceiptCard";
 
 const memberColors = [
   "bg-primary",
@@ -83,14 +76,13 @@ const createItem = (name, price) => ({
   assignedTo: [],
 });
 
-const createReceipt = (index, overrides = {}) => ({
+const createReceipt = (overrides = {}) => ({
   id: createId(),
-  label: buildReceiptLabel(index),
+  label: "",
   items: [],
-  gst: 0,
-  serviceCharge: 0,
+  gst: "",
+  serviceCharge: "",
   gstSplitMode: RECEIPT_SPLIT_MODES.EQUALLY,
-  serviceChargeSplitMode: RECEIPT_SPLIT_MODES.EQUALLY,
   ...overrides,
 });
 
@@ -153,17 +145,13 @@ const sanitizePriceInput = (value) => {
 const getDraftForReceipt = (drafts, receiptId) =>
   drafts[receiptId] || { name: "", price: "" };
 
-const isReceiptEmpty = (receipt) =>
-  receipt.items.length === 0 &&
-  Number(receipt.gst || 0) === 0 &&
-  Number(receipt.serviceCharge || 0) === 0;
-
 const SplitPage = () => {
   const [billName, setBillName] = useState("");
   const [members, setMembers] = useState(initialMembers);
-  const [receipts, setReceipts] = useState(() => [createReceipt(0)]);
+  const [receipts, setReceipts] = useState(() => []);
   const [newMemberName, setNewMemberName] = useState("");
   const [itemDrafts, setItemDrafts] = useState({});
+  const [openReceiptIds, setOpenReceiptIds] = useState({});
   const [isScanningReceipts, setIsScanningReceipts] = useState(false);
   const receiptImageInputRef = useRef(null);
 
@@ -216,18 +204,23 @@ const SplitPage = () => {
   };
 
   const handleAddReceipt = () => {
-    setReceipts((current) => [...current, createReceipt(current.length)]);
+    const nextReceipt = createReceipt();
+    setReceipts((current) => [...current, nextReceipt]);
+    setOpenReceiptIds((current) => ({
+      ...current,
+      [nextReceipt.id]: true,
+    }));
   };
 
   const handleRemoveReceipt = (receiptId) => {
-    if (receipts.length === 1) {
-      toast.error("Keep at least one receipt in the bill.");
-      return;
-    }
-
     setReceipts((current) =>
       current.filter((receipt) => receipt.id !== receiptId)
     );
+    setOpenReceiptIds((current) => {
+      const nextState = { ...current };
+      delete nextState[receiptId];
+      return nextState;
+    });
     setItemDrafts((current) => {
       const nextDrafts = { ...current };
       delete nextDrafts[receiptId];
@@ -236,20 +229,14 @@ const SplitPage = () => {
   };
 
   const handleClearReceipts = () => {
-    const hasAnyData = receipts.some(
-      (receipt) =>
-        receipt.items.length > 0 ||
-        Number(receipt.gst || 0) > 0 ||
-        Number(receipt.serviceCharge || 0) > 0
-    );
-
-    if (!hasAnyData) {
-      toast.error("There are no receipt details to clear.");
+    if (receipts.length === 0) {
+      toast.error("There are no receipts to clear.");
       return;
     }
 
-    setReceipts([createReceipt(0)]);
+    setReceipts([]);
     setItemDrafts({});
+    setOpenReceiptIds({});
     toast.success("All receipt details cleared.");
   };
 
@@ -296,7 +283,7 @@ const SplitPage = () => {
       if (field === "gst" || field === "serviceCharge") {
         return {
           ...receipt,
-          [field]: Number(sanitizePriceInput(value) || 0),
+          [field]: sanitizePriceInput(value),
         };
       }
 
@@ -415,44 +402,34 @@ const SplitPage = () => {
         return;
       }
 
-      setReceipts((current) => {
-        const importedReceipts = scannedReceipts.map((receipt, index) =>
-          createReceipt(current.length + index, {
-            label: limitTextLength(
-              String(receipt.label || buildReceiptLabel(current.length + index))
-            ),
-            items: (Array.isArray(receipt.items) ? receipt.items : []).map(
-              (item) =>
-                createItem(
-                  limitTextLength(String(item.name || "")),
-                  Number(sanitizePriceInput(String(item.price || 0)) || 0)
-                )
-            ),
-            gst: Number(sanitizePriceInput(String(receipt.gst || 0)) || 0),
-            serviceCharge: Number(
-              sanitizePriceInput(String(receipt.serviceCharge || 0)) || 0
-            ),
-            gstSplitMode:
-              receipt.gstSplitMode === RECEIPT_SPLIT_MODES.BY_ITEMS
-                ? RECEIPT_SPLIT_MODES.BY_ITEMS
-                : RECEIPT_SPLIT_MODES.EQUALLY,
-            serviceChargeSplitMode:
-              receipt.serviceChargeSplitMode === RECEIPT_SPLIT_MODES.BY_ITEMS
-                ? RECEIPT_SPLIT_MODES.BY_ITEMS
-                : RECEIPT_SPLIT_MODES.EQUALLY,
-          })
-        );
+      const importedReceipts = scannedReceipts.map((receipt, index) =>
+        createReceipt({
+          label: limitTextLength(
+            String(receipt.label || buildReceiptLabel(receipts.length + index))
+          ),
+          items: (Array.isArray(receipt.items) ? receipt.items : []).map(
+            (item) =>
+              createItem(
+                limitTextLength(String(item.name || "")),
+                Number(sanitizePriceInput(String(item.price || 0)) || 0)
+              )
+          ),
+          gst: sanitizePriceInput(String(receipt.gst || "")),
+          serviceCharge: sanitizePriceInput(String(receipt.serviceCharge || "")),
+          gstSplitMode:
+            receipt.gstSplitMode === RECEIPT_SPLIT_MODES.BY_ITEMS
+              ? RECEIPT_SPLIT_MODES.BY_ITEMS
+              : RECEIPT_SPLIT_MODES.EQUALLY,
+        })
+      );
 
-        if (
-          current.length === 1 &&
-          isReceiptEmpty(current[0]) &&
-          current[0].label === buildReceiptLabel(0)
-        ) {
-          return importedReceipts;
-        }
-
-        return [...current, ...importedReceipts];
-      });
+      setReceipts((current) => [...current, ...importedReceipts]);
+      setOpenReceiptIds((current) => ({
+        ...current,
+        ...Object.fromEntries(
+          importedReceipts.map((receipt) => [receipt.id, true])
+        ),
+      }));
 
       toast.success(
         `Added ${extractedCount} item${
@@ -672,417 +649,50 @@ const SplitPage = () => {
                   const itemDraft = getDraftForReceipt(itemDrafts, receipt.id);
 
                   return (
-                    <div
+                    <ReceiptCard
                       key={receipt.id}
-                      className="overflow-hidden rounded-xl border"
-                    >
-                      <div className="space-y-4 bg-card px-4 py-4 sm:px-5">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                          <div className="w-full max-w-sm space-y-2">
-                            <Label htmlFor={`receipt-label-${receipt.id}`}>
-                              Receipt label
-                            </Label>
-                            <Input
-                              id={`receipt-label-${receipt.id}`}
-                              value={receipt.label}
-                              onChange={(event) =>
-                                handleReceiptFieldChange(
-                                  receipt.id,
-                                  "label",
-                                  event.target.value
-                                )
-                              }
-                              maxLength={maxInputLength}
-                              placeholder={buildReceiptLabel(index)}
-                            />
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleClearReceiptItems(receipt.id)}
-                              disabled={receipt.items.length === 0}
-                            >
-                              Clear items
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="text-muted-foreground hover:text-destructive"
-                              onClick={() => handleRemoveReceipt(receipt.id)}
-                              disabled={receipts.length === 1}
-                              aria-label={`Remove ${receipt.label || `receipt ${index + 1}`}`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-
-                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                          <div className="space-y-2">
-                            <Label htmlFor={`receipt-gst-${receipt.id}`}>
-                              GST
-                            </Label>
-                            <Input
-                              id={`receipt-gst-${receipt.id}`}
-                              type="text"
-                              inputMode="decimal"
-                              value={receipt.gst}
-                              onChange={(event) =>
-                                handleReceiptFieldChange(
-                                  receipt.id,
-                                  "gst",
-                                  event.target.value
-                                )
-                              }
-                              maxLength={maxInputLength}
-                              placeholder="0.00"
-                            />
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label
-                              htmlFor={`receipt-service-charge-${receipt.id}`}
-                            >
-                              Service charge
-                            </Label>
-                            <Input
-                              id={`receipt-service-charge-${receipt.id}`}
-                              type="text"
-                              inputMode="decimal"
-                              value={receipt.serviceCharge}
-                              onChange={(event) =>
-                                handleReceiptFieldChange(
-                                  receipt.id,
-                                  "serviceCharge",
-                                  event.target.value
-                                )
-                              }
-                              maxLength={maxInputLength}
-                              placeholder="0.00"
-                            />
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label>GST split mode</Label>
-                            <Select
-                              value={receipt.gstSplitMode}
-                              onValueChange={(value) =>
-                                handleSplitModeChange(
-                                  receipt.id,
-                                  "gstSplitMode",
-                                  value
-                                )
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {splitModeOptions.map((option) => (
-                                  <SelectItem
-                                    key={option.value}
-                                    value={option.value}
-                                  >
-                                    {option.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label>Service charge split mode</Label>
-                            <Select
-                              value={receipt.serviceChargeSplitMode}
-                              onValueChange={(value) =>
-                                handleSplitModeChange(
-                                  receipt.id,
-                                  "serviceChargeSplitMode",
-                                  value
-                                )
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {splitModeOptions.map((option) => (
-                                  <SelectItem
-                                    key={option.value}
-                                    value={option.value}
-                                  >
-                                    {option.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-
-                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                          {[
-                            {
-                              label: "Subtotal",
-                              value: formatCurrency(receiptSummary.subtotal),
-                            },
-                            {
-                              label: "GST",
-                              value: formatCurrency(receiptSummary.gst),
-                            },
-                            {
-                              label: "Service charge",
-                              value: formatCurrency(
-                                receiptSummary.serviceCharge
-                              ),
-                            },
-                            {
-                              label: "Total",
-                              value: formatCurrency(receiptSummary.total),
-                            },
-                          ].map((stat) => (
-                            <div
-                              key={`${receipt.id}-${stat.label}`}
-                              className="rounded-lg border bg-muted/30 px-3 py-2.5"
-                            >
-                              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                                {stat.label}
-                              </p>
-                              <p className="mt-1 text-sm font-bold text-foreground">
-                                {stat.value}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-
-                        {receiptSummary.unassignedTotal > 0 && (
-                          <p className="text-xs text-muted-foreground">
-                            Unassigned in this receipt:{" "}
-                            <span className="font-semibold text-foreground">
-                              {formatCurrency(receiptSummary.unassignedTotal)}
-                            </span>
-                          </p>
-                        )}
-
-                        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px_auto]">
-                          <Input
-                            value={itemDraft.name}
-                            onChange={(event) =>
-                              updateReceiptDraft(
-                                receipt.id,
-                                "name",
-                                limitTextLength(event.target.value)
-                              )
-                            }
-                            maxLength={maxInputLength}
-                            placeholder="Add item"
-                          />
-                          <Input
-                            type="text"
-                            inputMode="decimal"
-                            value={itemDraft.price}
-                            onChange={(event) =>
-                              updateReceiptDraft(
-                                receipt.id,
-                                "price",
-                                sanitizePriceInput(event.target.value)
-                              )
-                            }
-                            maxLength={maxInputLength}
-                            placeholder="Price"
-                          />
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-1.5 text-xs"
-                            onClick={() => handleAddItem(receipt.id)}
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                            Add item
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="border-t bg-background">
-                        <div className="hidden grid-cols-12 gap-2 border-b bg-muted/40 px-5 py-2.5 text-xs font-semibold uppercase text-muted-foreground sm:grid">
-                          <div className="col-span-4">Item</div>
-                          <div className="col-span-2 text-center">Price</div>
-                          <div className="col-span-5">Assigned to</div>
-                          <div className="col-span-1" />
-                        </div>
-
-                        {receipt.items.length === 0 ? (
-                          <div className="px-5 py-6 text-sm text-muted-foreground">
-                            No items yet for this receipt.
-                          </div>
-                        ) : (
-                          receipt.items.map((item, itemIndex) => (
-                            <div key={item.id}>
-                              {itemIndex > 0 && <Separator />}
-
-                              <div className="hidden grid-cols-12 items-center gap-2 px-5 py-3 transition-colors hover:bg-muted/30 sm:grid">
-                                <div className="col-span-4">
-                                  <Input
-                                    value={item.name}
-                                    onChange={(event) =>
-                                      handleItemFieldChange(
-                                        receipt.id,
-                                        item.id,
-                                        "name",
-                                        event.target.value
-                                      )
-                                    }
-                                    maxLength={maxInputLength}
-                                    className="h-9"
-                                  />
-                                </div>
-
-                                <div className="col-span-2 text-right">
-                                  <Input
-                                    type="text"
-                                    inputMode="decimal"
-                                    value={item.price}
-                                    onChange={(event) =>
-                                      handleItemFieldChange(
-                                        receipt.id,
-                                        item.id,
-                                        "price",
-                                        event.target.value
-                                      )
-                                    }
-                                    maxLength={maxInputLength}
-                                    className="h-9 text-right"
-                                  />
-                                </div>
-
-                                <div className="col-span-5 flex flex-wrap gap-1.5">
-                                  {members.map((member) => (
-                                    <label
-                                      key={member.id}
-                                      className="flex max-w-full cursor-pointer items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors hover:bg-muted/60"
-                                    >
-                                      <Checkbox
-                                        checked={item.assignedTo.includes(
-                                          member.id
-                                        )}
-                                        onCheckedChange={() =>
-                                          toggleAssignment(
-                                            receipt.id,
-                                            item.id,
-                                            member.id
-                                          )
-                                        }
-                                        className="h-3.5 w-3.5 shrink-0"
-                                      />
-                                      <span
-                                        className="max-w-[72px] truncate"
-                                        title={member.name}
-                                      >
-                                        {truncateTextForUi(member.name)}
-                                      </span>
-                                    </label>
-                                  ))}
-                                </div>
-
-                                <div className="col-span-1 flex justify-end">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                    onClick={() =>
-                                      handleRemoveItem(receipt.id, item.id)
-                                    }
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </Button>
-                                </div>
-                              </div>
-
-                              <div className="space-y-3 px-5 py-3 sm:hidden">
-                                <div className="grid grid-cols-[minmax(0,1fr)_40px] gap-2">
-                                  <Input
-                                    value={item.name}
-                                    onChange={(event) =>
-                                      handleItemFieldChange(
-                                        receipt.id,
-                                        item.id,
-                                        "name",
-                                        event.target.value
-                                      )
-                                    }
-                                    placeholder="Item name"
-                                    maxLength={maxInputLength}
-                                    className="col-span-2"
-                                  />
-                                  <Input
-                                    type="text"
-                                    inputMode="decimal"
-                                    value={item.price}
-                                    onChange={(event) =>
-                                      handleItemFieldChange(
-                                        receipt.id,
-                                        item.id,
-                                        "price",
-                                        event.target.value
-                                      )
-                                    }
-                                    placeholder="Price"
-                                    maxLength={maxInputLength}
-                                  />
-                                  <div className="flex items-center justify-end">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
-                                      onClick={() =>
-                                        handleRemoveItem(receipt.id, item.id)
-                                      }
-                                      aria-label={`Remove ${item.name || "item"}`}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </div>
-
-                                <div className="flex flex-wrap gap-1.5">
-                                  {members.map((member) => (
-                                    <label
-                                      key={member.id}
-                                      className="flex max-w-full cursor-pointer items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors hover:bg-muted/60"
-                                    >
-                                      <Checkbox
-                                        checked={item.assignedTo.includes(
-                                          member.id
-                                        )}
-                                        onCheckedChange={() =>
-                                          toggleAssignment(
-                                            receipt.id,
-                                            item.id,
-                                            member.id
-                                          )
-                                        }
-                                        className="h-3.5 w-3.5 shrink-0"
-                                      />
-                                      <span
-                                        className="max-w-[72px] truncate"
-                                        title={member.name}
-                                      >
-                                        {truncateTextForUi(member.name)}
-                                      </span>
-                                    </label>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
+                      index={index}
+                      receipt={receipt}
+                      receiptSummary={receiptSummary}
+                      itemDraft={itemDraft}
+                      members={members}
+                      isOpen={openReceiptIds[receipt.id] ?? true}
+                      splitModeOptions={splitModeOptions}
+                      maxInputLength={maxInputLength}
+                      buildReceiptLabel={buildReceiptLabel}
+                      truncateTextForUi={truncateTextForUi}
+                      onOpenChange={(open) =>
+                        setOpenReceiptIds((current) => ({
+                          ...current,
+                          [receipt.id]: open,
+                        }))
+                      }
+                      onReceiptFieldChange={handleReceiptFieldChange}
+                      onSplitModeChange={handleSplitModeChange}
+                      onDraftChange={(receiptId, field, value) =>
+                        updateReceiptDraft(
+                          receiptId,
+                          field,
+                          field === "price"
+                            ? sanitizePriceInput(value)
+                            : limitTextLength(value)
+                        )
+                      }
+                      onAddItem={handleAddItem}
+                      onRemoveItem={handleRemoveItem}
+                      onToggleAssignment={toggleAssignment}
+                      onClearReceiptItems={handleClearReceiptItems}
+                      onRemoveReceipt={() => handleRemoveReceipt(receipt.id)}
+                      onItemFieldChange={handleItemFieldChange}
+                    />
                   );
                 })}
+
+                {receipts.length === 0 && (
+                  <div className="rounded-xl border border-dashed px-5 py-8 text-center text-sm text-muted-foreground">
+                    No receipts added yet. Add one manually or scan receipt photos.
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

@@ -115,7 +115,6 @@ const createLegacyReceipt = (items = [], billId) => ({
   gst: 0,
   serviceCharge: 0,
   gstSplitMode: RECEIPT_SPLIT_MODES.EQUALLY,
-  serviceChargeSplitMode: RECEIPT_SPLIT_MODES.EQUALLY,
   items,
 });
 
@@ -152,7 +151,6 @@ const normalizeReceipt = (receipt, index, billId) => {
     serviceCharge: centsToAmount(serviceChargeCents),
     total: centsToAmount(subtotalCents + gstCents + serviceChargeCents),
     gstSplitMode: normalizeSplitMode(receipt?.gstSplitMode),
-    serviceChargeSplitMode: normalizeSplitMode(receipt?.serviceChargeSplitMode),
   };
 };
 
@@ -313,14 +311,10 @@ const summarizeBill = ({ receipts = [], members = [] }) => {
         ? allocateCents(receiptGstCents, involvedMemberIds, memberItemCents)
         : allocateEqually(receiptGstCents, involvedMemberIds);
 
-    const serviceChargeAllocation =
-      receipt.serviceChargeSplitMode === RECEIPT_SPLIT_MODES.BY_ITEMS
-        ? allocateCents(
-            receiptServiceChargeCents,
-            involvedMemberIds,
-            memberItemCents
-          )
-        : allocateEqually(receiptServiceChargeCents, involvedMemberIds);
+    const serviceChargeAllocation = allocateEqually(
+      receiptServiceChargeCents,
+      involvedMemberIds
+    );
 
     if (involvedMemberIds.length === 0) {
       receiptUnassignedCents += receiptGstCents + receiptServiceChargeCents;
@@ -435,7 +429,6 @@ const normaliseStoredBill = (bill) => {
       serviceCharge: receipt.serviceCharge,
       total: receipt.total,
       gstSplitMode: receipt.gstSplitMode,
-      serviceChargeSplitMode: receipt.serviceChargeSplitMode,
     })),
     items: summary.items.map((item) => ({
       id: item.id,
@@ -561,7 +554,6 @@ export const saveBillToHistory = ({ billName, members, receipts }) => {
       serviceCharge: receipt.serviceCharge,
       total: receipt.total,
       gstSplitMode: receipt.gstSplitMode,
-      serviceChargeSplitMode: receipt.serviceChargeSplitMode,
     })),
     items: summary.items.map((item) => ({
       id: item.id,
