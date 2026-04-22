@@ -103,9 +103,9 @@ const ReceiptCard = ({
         </div>
 
         <CollapsibleContent>
-            <div className="space-y-4 px-4 py-4 sm:px-5">
-              <div className="flex flex-col gap-3">
-                <div className="w-full space-y-2">
+          <div className="space-y-4 px-4 py-4 sm:px-5">
+            <div className="flex flex-col gap-3">
+              <div className="w-full space-y-2">
                 <Label htmlFor={`receipt-label-${receipt.id}`}>Receipt label</Label>
                 <Input
                   id={`receipt-label-${receipt.id}`}
@@ -121,33 +121,44 @@ const ReceiptCard = ({
 
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <div className="space-y-2">
-                <Label htmlFor={`receipt-gst-${receipt.id}`}>GST</Label>
+                <Label htmlFor={`receipt-gst-rate-${receipt.id}`}>GST %</Label>
                 <Input
-                  id={`receipt-gst-${receipt.id}`}
+                  id={`receipt-gst-rate-${receipt.id}`}
                   type="text"
                   inputMode="decimal"
-                  value={receipt.gst}
+                  value={receipt.gstRate}
                   onChange={(event) =>
-                    onReceiptFieldChange(receipt.id, "gst", event.target.value)
+                    onReceiptFieldChange(
+                      receipt.id,
+                      "gstRate",
+                      event.target.value
+                    )
                   }
                   maxLength={maxInputLength}
-                  placeholder="0.00"
+                  placeholder="9"
                 />
               </div>
 
               <div className="space-y-2">
+                <Label>GST</Label>
+                <div className="flex h-10 items-center rounded-md border border-input bg-muted/20 px-3 text-sm text-foreground">
+                  {formatCurrency(receiptSummary.gstAmount)}
+                </div>
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor={`receipt-service-charge-${receipt.id}`}>
-                  Service charge
+                  Service Charge
                 </Label>
                 <Input
                   id={`receipt-service-charge-${receipt.id}`}
                   type="text"
                   inputMode="decimal"
-                  value={receipt.serviceCharge}
+                  value={receipt.serviceChargeAmount}
                   onChange={(event) =>
                     onReceiptFieldChange(
                       receipt.id,
-                      "serviceCharge",
+                      "serviceChargeAmount",
                       event.target.value
                     )
                   }

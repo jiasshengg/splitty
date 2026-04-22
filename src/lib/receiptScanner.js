@@ -32,8 +32,8 @@ export const scanReceiptImages = async (files = []) => {
           {
             label: 'Receipt 1',
             items: payload.items,
-            gst: 0,
-            serviceCharge: 0,
+            gstRate: 0,
+            serviceChargeAmount: 0,
           },
         ]
       : [];

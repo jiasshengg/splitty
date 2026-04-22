@@ -109,11 +109,15 @@ const normalizeSplitMode = (value) =>
     ? RECEIPT_SPLIT_MODES.BY_ITEMS
     : RECEIPT_SPLIT_MODES.EQUALLY;
 
+const hasValue = (value) =>
+  value !== undefined && value !== null && String(value).trim() !== "";
+
 const createLegacyReceipt = (items = [], billId) => ({
   id: `${billId || "bill"}-receipt-1`,
   label: "Receipt 1",
-  gst: 0,
-  serviceCharge: 0,
+  gstRate: 0,
+  gstAmount: 0,
+  serviceChargeAmount: 0,
   gstSplitMode: RECEIPT_SPLIT_MODES.EQUALLY,
   items,
 });
@@ -137,8 +141,20 @@ const normalizeReceipt = (receipt, index, billId) => {
     (sum, item) => sum + roundToCents(item.price),
     0
   );
-  const gstCents = roundToCents(receipt?.gst);
-  const serviceChargeCents = roundToCents(receipt?.serviceCharge);
+  const rawGstRate = toNumber(receipt?.gstRate);
+  const legacyGstAmountCents = roundToCents(receipt?.gstAmount ?? receipt?.gst);
+  const gstAmountCents = hasValue(receipt?.gstRate)
+    ? Math.round((subtotalCents * rawGstRate) / 100)
+    : legacyGstAmountCents;
+  const gstRate =
+    hasValue(receipt?.gstRate)
+      ? rawGstRate
+      : subtotalCents > 0 && legacyGstAmountCents > 0
+        ? Number(((legacyGstAmountCents * 100) / subtotalCents).toFixed(4))
+        : 0;
+  const serviceChargeAmountCents = roundToCents(
+    receipt?.serviceChargeAmount ?? receipt?.serviceCharge
+  );
 
   return {
     id: receiptId,
@@ -147,9 +163,12 @@ const normalizeReceipt = (receipt, index, billId) => {
       `Receipt ${index + 1}`,
     items,
     subtotal: centsToAmount(subtotalCents),
-    gst: centsToAmount(gstCents),
-    serviceCharge: centsToAmount(serviceChargeCents),
-    total: centsToAmount(subtotalCents + gstCents + serviceChargeCents),
+    gstRate,
+    gstAmount: centsToAmount(gstAmountCents),
+    serviceChargeAmount: centsToAmount(serviceChargeAmountCents),
+    total: centsToAmount(
+      subtotalCents + gstAmountCents + serviceChargeAmountCents
+    ),
     gstSplitMode: normalizeSplitMode(receipt?.gstSplitMode),
   };
 };
@@ -264,8 +283,10 @@ const summarizeBill = ({ receipts = [], members = [] }) => {
       (sum, item) => sum + roundToCents(item.price),
       0
     );
-    const receiptGstCents = roundToCents(receipt.gst);
-    const receiptServiceChargeCents = roundToCents(receipt.serviceCharge);
+    const receiptGstCents = roundToCents(receipt.gstAmount);
+    const receiptServiceChargeCents = roundToCents(
+      receipt.serviceChargeAmount
+    );
     const memberItemCents = Object.fromEntries(
       members.map((member) => [member.id, 0])
     );
@@ -362,8 +383,8 @@ const summarizeBill = ({ receipts = [], members = [] }) => {
       ...receipt,
       items,
       subtotal: centsToAmount(receiptSubtotalCents),
-      gst: centsToAmount(receiptGstCents),
-      serviceCharge: centsToAmount(receiptServiceChargeCents),
+      gstAmount: centsToAmount(receiptGstCents),
+      serviceChargeAmount: centsToAmount(receiptServiceChargeCents),
       total: centsToAmount(
         receiptSubtotalCents + receiptGstCents + receiptServiceChargeCents
       ),
@@ -425,8 +446,9 @@ const normaliseStoredBill = (bill) => {
         assignedTo: item.assignedTo,
       })),
       subtotal: receipt.subtotal,
-      gst: receipt.gst,
-      serviceCharge: receipt.serviceCharge,
+      gstRate: receipt.gstRate,
+      gstAmount: receipt.gstAmount,
+      serviceChargeAmount: receipt.serviceChargeAmount,
       total: receipt.total,
       gstSplitMode: receipt.gstSplitMode,
     })),
@@ -550,8 +572,9 @@ export const saveBillToHistory = ({ billName, members, receipts }) => {
         assignedTo: item.assignedTo,
       })),
       subtotal: receipt.subtotal,
-      gst: receipt.gst,
-      serviceCharge: receipt.serviceCharge,
+      gstRate: receipt.gstRate,
+      gstAmount: receipt.gstAmount,
+      serviceChargeAmount: receipt.serviceChargeAmount,
       total: receipt.total,
       gstSplitMode: receipt.gstSplitMode,
     })),

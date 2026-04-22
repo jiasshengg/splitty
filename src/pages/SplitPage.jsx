@@ -49,7 +49,7 @@ const splitModeOptions = [
   },
   {
     value: RECEIPT_SPLIT_MODES.BY_ITEMS,
-    label: "Based on what was used",
+    label: "Based on what they ate",
   },
 ];
 
@@ -80,8 +80,8 @@ const createReceipt = (overrides = {}) => ({
   id: createId(),
   label: "",
   items: [],
-  gst: "",
-  serviceCharge: "",
+  gstRate: "",
+  serviceChargeAmount: "",
   gstSplitMode: RECEIPT_SPLIT_MODES.EQUALLY,
   ...overrides,
 });
@@ -280,7 +280,7 @@ const SplitPage = () => {
 
   const handleReceiptFieldChange = (receiptId, field, value) => {
     updateReceipt(receiptId, (receipt) => {
-      if (field === "gst" || field === "serviceCharge") {
+      if (field === "gstRate" || field === "serviceChargeAmount") {
         return {
           ...receipt,
           [field]: sanitizePriceInput(value),
@@ -414,8 +414,10 @@ const SplitPage = () => {
                 Number(sanitizePriceInput(String(item.price || 0)) || 0)
               )
           ),
-          gst: sanitizePriceInput(String(receipt.gst || "")),
-          serviceCharge: sanitizePriceInput(String(receipt.serviceCharge || "")),
+          gstRate: sanitizePriceInput(String(receipt.gstRate || "")),
+          serviceChargeAmount: sanitizePriceInput(
+            String(receipt.serviceChargeAmount ?? receipt.serviceCharge ?? "")
+          ),
           gstSplitMode:
             receipt.gstSplitMode === RECEIPT_SPLIT_MODES.BY_ITEMS
               ? RECEIPT_SPLIT_MODES.BY_ITEMS

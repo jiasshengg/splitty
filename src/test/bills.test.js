@@ -16,8 +16,8 @@ describe("calculateBillSummary", () => {
         {
           id: "r1",
           label: "Dinner",
-          gst: 3.01,
-          serviceCharge: 2,
+          gstRate: 10,
+          serviceChargeAmount: 2,
           gstSplitMode: RECEIPT_SPLIT_MODES.EQUALLY,
           items: [
             { id: "i1", name: "Pasta", price: 10, assignedTo: ["a"] },
@@ -27,8 +27,8 @@ describe("calculateBillSummary", () => {
         {
           id: "r2",
           label: "Dessert",
-          gst: 0.99,
-          serviceCharge: 1.01,
+          gstRate: 7,
+          serviceChargeAmount: 1.01,
           gstSplitMode: RECEIPT_SPLIT_MODES.BY_ITEMS,
           items: [
             { id: "i3", name: "Cake", price: 9, assignedTo: ["c"] },
@@ -40,9 +40,17 @@ describe("calculateBillSummary", () => {
 
     expect(summary.receiptCount).toBe(2);
     expect(summary.itemCount).toBe(4);
-    expect(summary.total).toBe(52.01);
+    expect(summary.total).toBe(52.06);
 
-    expect(summary.receipts.map((receipt) => receipt.total)).toEqual([35.01, 17]);
+    expect(summary.receipts.map((receipt) => ({
+      gstRate: receipt.gstRate,
+      gstAmount: receipt.gstAmount,
+      serviceChargeAmount: receipt.serviceChargeAmount,
+      total: receipt.total,
+    }))).toEqual([
+      { gstRate: 10, gstAmount: 3, serviceChargeAmount: 2, total: 35 },
+      { gstRate: 7, gstAmount: 1.05, serviceChargeAmount: 1.01, total: 17.06 },
+    ]);
     expect(summary.receipts.map((receipt) => receipt.unassignedTotal)).toEqual([0, 0]);
 
     expect(summary.members.map((member) => ({
@@ -55,23 +63,23 @@ describe("calculateBillSummary", () => {
       {
         id: "a",
         itemSubtotal: 20,
-        gstShare: 1.51,
+        gstShare: 1.5,
         serviceChargeShare: 1,
-        total: 22.51,
+        total: 22.5,
       },
       {
         id: "b",
         itemSubtotal: 13,
-        gstShare: 1.7,
+        gstShare: 1.71,
         serviceChargeShare: 1.51,
-        total: 16.21,
+        total: 16.22,
       },
       {
         id: "c",
         itemSubtotal: 12,
-        gstShare: 0.79,
+        gstShare: 0.84,
         serviceChargeShare: 0.5,
-        total: 13.29,
+        total: 13.34,
       },
     ]);
 
@@ -89,8 +97,8 @@ describe("calculateBillSummary", () => {
         {
           id: "r1",
           label: "Empty assignments",
-          gst: 0.5,
-          serviceCharge: 0.5,
+          gstRate: 10,
+          serviceChargeAmount: 0.5,
           gstSplitMode: RECEIPT_SPLIT_MODES.EQUALLY,
           items: [{ id: "i1", name: "Fries", price: 5, assignedTo: [] }],
         },
