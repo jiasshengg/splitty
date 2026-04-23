@@ -5,6 +5,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -17,15 +27,17 @@ import {
   Calendar,
   Settings,
   DollarSign,
+  Trash2,
 } from "lucide-react";
 import {
   formatBillDate,
   formatCurrency,
 } from "@/lib/bills";
 import AppNavbar from "@/components/AppNavbar";
+import { toast } from "@/hooks/use-toast";
 import { getAccountDisplayName, getAccountInitials } from "@/lib/account";
 import { getCurrentUserDetails } from "@/lib/session";
-import { getBillHistory } from "@/lib/billApi";
+import { deleteBill, getBillHistory } from "@/lib/billApi";
 
 const ReceiptHistoryRow = ({ bill, onViewDetails, showSeparator = false }) => (
   <div>
@@ -60,7 +72,7 @@ const ReceiptHistoryRow = ({ bill, onViewDetails, showSeparator = false }) => (
   </div>
 );
 
-const ReceiptDetails = ({ bill }) => {
+const ReceiptDetails = ({ bill, onDelete, isDeleting = false }) => {
   if (!bill) {
     return null;
   }
@@ -78,6 +90,17 @@ const ReceiptDetails = ({ bill }) => {
             {formatBillDate(bill.createdAt)} · {bill.peopleCount} people · {items.length} item{items.length === 1 ? "" : "s"} · Total {formatCurrency(bill.total)}
           </p>
         </div>
+        <Button
+          type="button"
+          variant="destructive"
+          size="sm"
+          className="hidden gap-2 self-start sm:inline-flex"
+          onClick={onDelete}
+          disabled={!bill || isDeleting}
+        >
+          <Trash2 className="h-4 w-4" />
+          Delete bill
+        </Button>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -161,6 +184,18 @@ const ReceiptDetails = ({ bill }) => {
           </div>
         </div>
       </div>
+
+      <Button
+        type="button"
+        variant="destructive"
+        size="sm"
+        className="w-full gap-2 sm:hidden"
+        onClick={onDelete}
+        disabled={!bill || isDeleting}
+      >
+        <Trash2 className="h-4 w-4" />
+        Delete bill
+      </Button>
     </div>
   );
 };
@@ -168,8 +203,10 @@ const ReceiptDetails = ({ bill }) => {
 const ProfilePage = () => {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [selectedBill, setSelectedBill] = useState(null);
+  const [billPendingDeletion, setBillPendingDeletion] = useState(null);
   const [account, setAccount] = useState(null);
   const [history, setHistory] = useState([]);
+  const [isDeletingBill, setIsDeletingBill] = useState(false);
   const displayName = getAccountDisplayName(account) || "Your account";
 
   useEffect(() => {
@@ -225,6 +262,35 @@ const ProfilePage = () => {
 
   const handleViewDetails = (bill) => {
     setSelectedBill(bill);
+  };
+
+  const handleDeleteBill = async () => {
+    if (!billPendingDeletion?.id) {
+      return;
+    }
+
+    setIsDeletingBill(true);
+
+    try {
+      await deleteBill(billPendingDeletion.id);
+
+      setHistory((prev) => prev.filter((bill) => bill.id !== billPendingDeletion.id));
+      setSelectedBill((prev) => (prev?.id === billPendingDeletion.id ? null : prev));
+      setBillPendingDeletion(null);
+
+      toast({
+        title: "Bill deleted",
+        description: "The bill has been removed from your history.",
+      });
+    } catch (error) {
+      toast({
+        title: "Unable to delete bill",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingBill(false);
+    }
   };
 
   return (
@@ -353,10 +419,38 @@ const ProfilePage = () => {
           </DialogHeader>
 
           <div className="max-h-[70vh] overflow-y-auto px-6 py-5">
-            <ReceiptDetails bill={selectedBill} />
+            <ReceiptDetails
+              bill={selectedBill}
+              onDelete={() => setBillPendingDeletion(selectedBill)}
+              isDeleting={isDeletingBill}
+            />
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={Boolean(billPendingDeletion)}
+        onOpenChange={(open) => !open && !isDeletingBill && setBillPendingDeletion(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this bill?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove {billPendingDeletion?.billName || "this bill"} from your receipt history.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingBill}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteBill}
+              disabled={isDeletingBill}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeletingBill ? "Deleting..." : "Delete bill"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

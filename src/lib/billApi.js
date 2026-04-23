@@ -47,3 +47,12 @@ export async function getBillHistory() {
     throw error;
   }
 }
+
+export async function deleteBill(billId) {
+  const response = await fetch(`${BILL_BASE_URL}${billId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+
+  await parseResponse(response);
+}
