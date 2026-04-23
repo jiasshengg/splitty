@@ -45,7 +45,7 @@ const AppNavbar = () => {
     await logoutSession();
     setIsAuthenticated(false);
     setIsMobileMenuOpen(false);
-    navigate('/login');
+    navigate('/');
   };
 
   const isActivePath = (path) => location.pathname === path;
@@ -56,7 +56,7 @@ const AppNavbar = () => {
         <div className="flex h-16 items-center">
           <Link to="/" className="flex items-center gap-2">
             <Flame className="h-7 w-7 text-primary" />
-            <span className="text-xl font-extrabold text-foreground">SplitPot</span>
+            <span className="text-xl font-extrabold text-foreground">Splitty</span>
           </Link>
 
           <div className="ml-auto hidden items-center gap-3 sm:flex sm:gap-4">

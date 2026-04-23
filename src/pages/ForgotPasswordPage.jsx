@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,10 +13,11 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import AppNavbar from '@/components/AppNavbar';
-import { loginSession } from '@/lib/session';
+import { requestPasswordReset } from '@/lib/session';
 
-const LoginPage = () => {
-  const navigate = useNavigate();
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const ForgotPasswordPage = () => {
   const messageRef = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -34,23 +36,30 @@ const LoginPage = () => {
     setIsLoading(true);
 
     const formData = new FormData(e.target);
+    const email = formData.get('email')?.toString().trim();
 
-    const username = formData.get('username')?.toString().trim();
-    const password = formData.get('password')?.toString();
+    if (!email) {
+      showMessage('Please enter your email.', 'error');
+      setIsLoading(false);
+      return;
+    }
 
-    if (!username || !password) {
-      showMessage('Please fill in all fields.', 'error');
+    if (!emailPattern.test(email)) {
+      showMessage('Please enter a valid email', 'error');
       setIsLoading(false);
       return;
     }
 
     try {
-      await loginSession({ username, password });
-      showMessage('Login successful. Redirecting...', 'success');
+      await requestPasswordReset({ email });
+
+      showMessage(
+        'If an account exists for that email, a password reset link has been sent.',
+        'success',
+      );
       e.target.reset();
-      navigate('/profile');
     } catch (error) {
-      showMessage(error.message || 'Something went wrong. Please try again.', 'error');
+      showMessage(error.message || 'Unable to start password reset right now.', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -61,33 +70,30 @@ const LoginPage = () => {
       <AppNavbar />
 
       <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-8">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-md space-y-4">
+          <Link to="/login" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-4 w-4" />
+            Back to login
+          </Link>
+
           <Card className="border shadow-xl">
             <CardHeader className="text-center">
-              <CardTitle className="text-2xl font-extrabold">Welcome back</CardTitle>
-              <CardDescription>Log in to manage your splits</CardDescription>
+              <CardTitle className="text-2xl font-extrabold">Forgot password</CardTitle>
+              <CardDescription>
+                Enter your email and we&apos;ll help you reset your password.
+              </CardDescription>
             </CardHeader>
 
             <form onSubmit={handleSubmit}>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="username">Username</Label>
-                  <Input id="username" name="username" placeholder="johndoe" autoComplete="username" required />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="password">Password</Label>
-                    <Link to="/forgot-password" className="text-xs font-medium text-primary hover:underline">
-                      Forgot password?
-                    </Link>
-                  </div>
+                  <Label htmlFor="forgot-email">Email</Label>
                   <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    placeholder="••••••••"
-                    autoComplete="current-password"
+                    id="forgot-email"
+                    name="email"
+                    type="email"
+                    placeholder="you@example.com"
+                    autoComplete="email"
                     required
                   />
                 </div>
@@ -95,16 +101,16 @@ const LoginPage = () => {
                 <p ref={messageRef} className="text-sm font-medium" />
 
                 <Button type="submit" className="w-full font-semibold" size="lg" disabled={isLoading}>
-                  {isLoading ? 'Logging in...' : 'Log in'}
+                  {isLoading ? 'Sending reset link...' : 'Send reset link'}
                 </Button>
               </CardContent>
             </form>
 
             <CardFooter className="justify-center">
               <p className="text-sm text-muted-foreground">
-                Don't have an account?{' '}
-                <Link to="/register" className="font-semibold text-primary hover:underline">
-                  Sign up
+                Remembered your password?{' '}
+                <Link to="/login" className="font-semibold text-primary hover:underline">
+                  Log in
                 </Link>
               </p>
             </CardFooter>
@@ -115,4 +121,4 @@ const LoginPage = () => {
   );
 };
 
-export default LoginPage;
+export default ForgotPasswordPage;

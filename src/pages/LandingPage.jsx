@@ -1,9 +1,33 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Receipt, Users, Calculator, ChevronRight, Flame } from 'lucide-react';
 import AppNavbar from '@/components/AppNavbar';
+import { checkSession } from '@/lib/session';
 
 const LandingPage = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadSession = async () => {
+      const isLoggedIn = await checkSession();
+
+      if (!isMounted) {
+        return;
+      }
+
+      setIsAuthenticated(isLoggedIn);
+    };
+
+    loadSession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       <AppNavbar />
@@ -15,19 +39,21 @@ const LandingPage = () => {
             No more awkward bill splitting
           </div>
           <h1 className="mb-6 text-4xl font-extrabold leading-tight tracking-tight text-foreground md:text-6xl">
-            Split the pot, <span className="text-primary">not the friendship.</span>
+            Split the bill, <span className="text-primary">not the friendship.</span>
           </h1>
           <p className="mx-auto mb-10 max-w-xl text-lg text-muted-foreground">
             Scan your receipt, tag what each person used, and get an instant fair breakdown.
             Perfect for any shared bill.
           </p>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            <Link to="/register">
-              <Button size="lg" className="gap-2 px-8 text-base font-semibold">
-                Get started free
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </Link>
+            {!isAuthenticated ? (
+              <Link to="/register">
+                <Button size="lg" className="gap-2 px-8 text-base font-semibold">
+                  Get started free
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </Link>
+            ) : null}
             <Link to="/split">
               <Button size="lg" variant="outline" className="gap-2 px-8 text-base font-semibold">
                 Try now
@@ -80,10 +106,10 @@ const LandingPage = () => {
         <div className="container mx-auto flex flex-col items-center gap-2 px-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
             <Flame className="h-4 w-4 text-primary" />
-            <span className="font-semibold text-foreground">SplitPot</span>
+            <span className="font-semibold text-foreground">Splitty</span>
           </div>
           <p className="text-center">
-            © 2026 SplitPot. Pay only for what you used.
+            © 2026 Splitty. Pay only for what you used.
           </p>
         </div>
       </footer>

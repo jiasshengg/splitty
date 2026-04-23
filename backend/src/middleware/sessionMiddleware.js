@@ -86,6 +86,14 @@ const generateSessionRedisUser = async (req, res) => {
       return responseView.BadRequest(res, "No User Data");
     }
 
+    if (!req.session) {
+      return responseView.sendError(
+        res,
+        "Failed to create session",
+        new Error("Session middleware is not initialized")
+      );
+    }
+
     const userId = user.id ?? user.user_id;
 
     req.session.user = {
@@ -100,7 +108,7 @@ const generateSessionRedisUser = async (req, res) => {
         return responseView.sendError(res, "Failed to create session", err);
       }
 
-      return responseView.sendSuccess(res, data, "Authenticated");
+      return responseView.sendSuccess(res, req.session.user, "Authenticated");
 
     });
   } catch (error) {

@@ -8,16 +8,41 @@ module.exports.getAllUsers = async function getAllUsers() {
 module.exports.getUserById = async function getUserById(id) {
   return prisma.users.findUnique({
     where: { id: id },
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      created_at: true,
+    }
   });
 }
+
+module.exports.getUserByEmail = async function getUserByEmail(email) {
+  return prisma.users.findUnique({
+    where: { email: email },
+    select: {
+      id: true,
+      username: true,
+      email: true,
+    },
+  });
+};
+
+module.exports.getUserPasswordById = async function getUserPasswordById(id) {
+  return prisma.users.findUnique({
+    where: { id: id },
+    select: {
+      id: true,
+      password: true,
+    },
+  });
+};
 
 module.exports.createUser = async function createUser(userData) {
   const {
     username,
     email,
     password,
-    first_name,
-    last_name,
     role = 1,
   } = userData;
 
@@ -27,16 +52,12 @@ module.exports.createUser = async function createUser(userData) {
         username,
         email,
         password,
-        first_name,
-        last_name,
         role,
       },
       select: {
         id: true,
         username: true,
         email: true,
-        first_name: true,
-        last_name: true,
       },
     });
 
@@ -45,23 +66,69 @@ module.exports.createUser = async function createUser(userData) {
 };
 
 module.exports.updateUser = async function updateUser(id, userData) {
-  const { username, email, first_name, last_name } = userData;
+  const { username, email } = userData;
 
   return prisma.users.update({
     where: { id: id },
     data: {
       username,
       email,
-      first_name,
-      last_name,
       updated_at: new Date()
     },
     select: {
       id: true,
       username: true,
       email: true,
-      first_name: true,
-      last_name: true,
+    },
+  });
+};
+
+module.exports.updateUserPassword = async function updateUserPassword(id, password) {
+  return prisma.users.update({
+    where: { id: id },
+    data: {
+      password,
+      resetPasswordToken: null,
+      resetPasswordExpiresAt: null,
+      updated_at: new Date(),
+    },
+    select: {
+      id: true,
+      username: true,
+      email: true,
+    },
+  });
+};
+
+module.exports.storePasswordResetToken = async function storePasswordResetToken(
+  id,
+  resetPasswordToken,
+  resetPasswordExpiresAt,
+) {
+  return prisma.users.update({
+    where: { id: id },
+    data: {
+      resetPasswordToken: resetPasswordToken,
+      resetPasswordExpiresAt: resetPasswordExpiresAt,
+      updated_at: new Date(),
+    },
+  });
+};
+
+module.exports.getUserByPasswordResetToken = async function getUserByPasswordResetToken(
+  resetPasswordToken,
+) {
+  return prisma.users.findFirst({
+    where: {
+      resetPasswordToken: resetPasswordToken,
+      resetPasswordExpiresAt: {
+        gt: new Date(),
+      },
+    },
+    select: {
+      id: true,
+      username: true,
+      email: true,
     },
   });
 };
@@ -69,5 +136,17 @@ module.exports.updateUser = async function updateUser(id, userData) {
 module.exports.deleteUser = async function deleteUser(id) {
   return prisma.users.delete({
     where: { id: id },
+  });
+};
+
+module.exports.loginUser = async function loginUser(username) {
+  return prisma.users.findUnique({
+    where: { username },
+    select: {
+      id: true,
+      username: true,
+      password: true,
+      role: true,
+    },
   });
 };
