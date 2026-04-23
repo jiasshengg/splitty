@@ -20,7 +20,7 @@ import {
   DollarSign,
 } from "lucide-react";
 import {
-  calculateMemberTotals,
+  calculateBillSummary,
   formatBillDate,
   formatCurrency,
   getStoredBills,
@@ -73,7 +73,7 @@ const ReceiptDetails = ({ bill }) => {
     return null;
   }
 
-  const breakdown = calculateMemberTotals(bill.items, bill.members);
+  const summary = calculateBillSummary(bill);
 
   return (
     <div className="space-y-4">
@@ -81,7 +81,7 @@ const ReceiptDetails = ({ bill }) => {
         <div>
           <h3 className="text-base font-bold text-foreground">{bill.billName}</h3>
           <p className="text-sm text-muted-foreground">
-            {formatBillDate(bill.createdAt)} · {bill.peopleCount} people · Total {formatCurrency(bill.total)}
+            {formatBillDate(bill.createdAt)} · {bill.peopleCount} people · {summary.receiptCount} receipt{summary.receiptCount === 1 ? "" : "s"} · Total {formatCurrency(summary.total)}
           </p>
         </div>
         <Badge
@@ -95,35 +95,105 @@ const ReceiptDetails = ({ bill }) => {
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="space-y-2">
           <p className="text-sm font-semibold text-foreground">People breakdown</p>
-          {breakdown.map((member) => (
-            <div key={member.id} className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2 text-sm">
-              <span>{member.name}</span>
-              <span className="font-semibold text-foreground">{formatCurrency(member.total)}</span>
+          {summary.members.map((member) => (
+            <div key={member.id} className="rounded-lg bg-muted/40 px-3 py-3 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-medium text-foreground">{member.name}</span>
+                <span className="font-semibold text-foreground">{formatCurrency(member.total)}</span>
+              </div>
+              <div className="mt-2 grid grid-cols-4 gap-2 text-xs text-muted-foreground">
+                <div>
+                  <span className="block">Items</span>
+                  <span className="font-semibold text-foreground">{formatCurrency(member.itemSubtotal)}</span>
+                </div>
+                <div>
+                  <span className="block">Discount</span>
+                  <span className="font-semibold text-foreground">-{formatCurrency(member.discountShare)}</span>
+                </div>
+                <div>
+                  <span className="block">GST</span>
+                  <span className="font-semibold text-foreground">{formatCurrency(member.gstShare)}</span>
+                </div>
+                <div>
+                  <span className="block">Service</span>
+                  <span className="font-semibold text-foreground">{formatCurrency(member.serviceChargeShare)}</span>
+                </div>
+              </div>
             </div>
           ))}
         </div>
 
         <div className="space-y-2">
-          <p className="text-sm font-semibold text-foreground">Items</p>
-          {bill.items.map((item) => {
-            const assignedNames = bill.members
-              .filter((member) => item.assignedTo.includes(member.id))
-              .map((member) => member.name)
-              .join(", ");
-
-            return (
-              <div key={item.id} className="rounded-lg bg-muted/40 px-3 py-2 text-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-medium text-foreground">{item.name}</span>
-                  <span className="font-semibold text-foreground">{formatCurrency(item.price)}</span>
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {assignedNames || "Not assigned to anyone"}
-                </p>
-              </div>
-            );
-          })}
+          <p className="text-sm font-semibold text-foreground">Bill totals</p>
+          {[
+            { label: "Subtotal", value: summary.subtotal },
+            { label: "Discount", value: -summary.discountAmount },
+            { label: "Discounted subtotal", value: summary.discountedSubtotal },
+            { label: "GST", value: summary.gstTotal },
+            { label: "Service charge", value: summary.serviceChargeTotal },
+            { label: "Unassigned", value: summary.unassignedTotal },
+            { label: "Final total", value: summary.total },
+          ].map((row) => (
+            <div key={row.label} className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2 text-sm">
+              <span>{row.label}</span>
+              <span className="font-semibold text-foreground">{formatCurrency(row.value)}</span>
+            </div>
+          ))}
         </div>
+      </div>
+
+      <div className="space-y-3">
+        <p className="text-sm font-semibold text-foreground">Receipts</p>
+        {summary.receipts.map((receipt) => (
+          <div key={receipt.id} className="rounded-xl border">
+            <div className="border-b bg-muted/30 px-4 py-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-semibold text-foreground">{receipt.label}</p>
+                  <p className="text-xs text-muted-foreground">
+                    GST split: {receipt.gstSplitMode === "byItems" ? "Based on what they ate" : "Equally"} · Service split: Equally
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground sm:text-right">
+                  <span>Subtotal {formatCurrency(receipt.subtotal)}</span>
+                  <span>Discount -{formatCurrency(receipt.discountAmount)}</span>
+                  <span>Net {formatCurrency(receipt.discountedSubtotal)}</span>
+                  <span>GST % {Number(receipt.gstRate || 0).toFixed(2)}</span>
+                  <span>GST {formatCurrency(receipt.gstAmount)}</span>
+                  <span>Service {formatCurrency(receipt.serviceChargeAmount)}</span>
+                  <span>Total {formatCurrency(receipt.total)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2 px-4 py-3">
+              {receipt.items.map((item) => {
+                const assignedNames = bill.members
+                  .filter((member) => item.assignedTo.includes(member.id))
+                  .map((member) => member.name)
+                  .join(", ");
+
+                return (
+                  <div key={item.id} className="rounded-lg bg-muted/40 px-3 py-2 text-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-medium text-foreground">{item.name}</span>
+                      <span className="font-semibold text-foreground">{formatCurrency(item.price)}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {assignedNames || "Not assigned to anyone"}
+                    </p>
+                  </div>
+                );
+              })}
+
+              {receipt.items.length === 0 && (
+                <div className="rounded-lg bg-muted/40 px-3 py-3 text-sm text-muted-foreground">
+                  No items in this receipt.
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
