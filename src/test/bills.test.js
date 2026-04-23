@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { calculateBillSummary, RECEIPT_SPLIT_MODES } from "@/lib/bills";
+import {
+  calculateBillSummary,
+  DISCOUNT_TYPES,
+  RECEIPT_SPLIT_MODES,
+} from "@/lib/bills";
 
 const roundMoney = (value) => Number(value.toFixed(2));
 
@@ -121,5 +125,131 @@ describe("calculateBillSummary", () => {
     expect(summary.members[0].total).toBe(0);
     expect(summary.receipts[0].members[0].gstShare).toBe(0);
     expect(summary.receipts[0].members[0].serviceChargeShare).toBe(0);
+  });
+
+  it("calculates each receipt discount before GST and allocates receipt discount proportionally", () => {
+    const summary = calculateBillSummary({
+      members: [
+        { id: "a", name: "Alex" },
+        { id: "b", name: "Bea" },
+      ],
+      receipts: [
+        {
+          id: "r1",
+          label: "Lunch",
+          discountType: DISCOUNT_TYPES.PERCENTAGE,
+          discountValue: 10,
+          gstRate: 9,
+          serviceChargeAmount: 0,
+          gstSplitMode: RECEIPT_SPLIT_MODES.BY_ITEMS,
+          items: [
+            { id: "i1", name: "Main", price: 60, assignedTo: ["a"] },
+            { id: "i2", name: "Sides", price: 40, assignedTo: ["b"] },
+          ],
+        },
+        {
+          id: "r2",
+          label: "Dessert",
+          gstRate: 9,
+          serviceChargeAmount: 0,
+          gstSplitMode: RECEIPT_SPLIT_MODES.BY_ITEMS,
+          items: [{ id: "i3", name: "Cake", price: 50, assignedTo: ["a"] }],
+        },
+      ],
+    });
+
+    expect(summary.subtotal).toBe(150);
+    expect(summary.discountAmount).toBe(10);
+    expect(summary.discountedSubtotal).toBe(140);
+    expect(summary.gstTotal).toBe(12.6);
+    expect(summary.total).toBe(152.6);
+
+    expect(summary.receipts[0]).toMatchObject({
+      subtotal: 100,
+      discountAmount: 10,
+      discountedSubtotal: 90,
+      gstAmount: 8.1,
+      total: 98.1,
+    });
+    expect(summary.receipts[1]).toMatchObject({
+      subtotal: 50,
+      discountAmount: 0,
+      discountedSubtotal: 50,
+      gstAmount: 4.5,
+      total: 54.5,
+    });
+
+    expect(summary.members.map((member) => ({
+      id: member.id,
+      itemSubtotal: member.itemSubtotal,
+      discountShare: member.discountShare,
+      gstShare: member.gstShare,
+      total: member.total,
+    }))).toEqual([
+      {
+        id: "a",
+        itemSubtotal: 104,
+        discountShare: 6,
+        gstShare: 9.36,
+        total: 113.36,
+      },
+      {
+        id: "b",
+        itemSubtotal: 36,
+        discountShare: 4,
+        gstShare: 3.24,
+        total: 39.24,
+      },
+    ]);
+  });
+
+  it("rotates extra cents across bill-wide equal splits in calculation order", () => {
+    const summary = calculateBillSummary({
+      members: [
+        { id: "1", name: "One" },
+        { id: "2", name: "Two" },
+        { id: "3", name: "Three" },
+      ],
+      receipts: [
+        {
+          id: "r1",
+          label: "Shared meal",
+          gstRate: 0,
+          serviceChargeAmount: 10,
+          gstSplitMode: RECEIPT_SPLIT_MODES.EQUALLY,
+          items: [
+            { id: "i1", name: "Dish 1", price: 10, assignedTo: ["1", "2", "3"] },
+            { id: "i2", name: "Dish 2", price: 10, assignedTo: ["1", "2", "3"] },
+            { id: "i3", name: "Dish 3", price: 10, assignedTo: ["1", "2", "3"] },
+          ],
+        },
+      ],
+    });
+
+    expect(summary.members.map((member) => ({
+      id: member.id,
+      itemSubtotal: member.itemSubtotal,
+      serviceChargeShare: member.serviceChargeShare,
+      total: member.total,
+    }))).toEqual([
+      {
+        id: "1",
+        itemSubtotal: 10,
+        serviceChargeShare: 3.34,
+        total: 13.34,
+      },
+      {
+        id: "2",
+        itemSubtotal: 10,
+        serviceChargeShare: 3.33,
+        total: 13.33,
+      },
+      {
+        id: "3",
+        itemSubtotal: 10,
+        serviceChargeShare: 3.33,
+        total: 13.33,
+      },
+    ]);
   });
 });

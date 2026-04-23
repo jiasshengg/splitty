@@ -101,10 +101,14 @@ const ReceiptDetails = ({ bill }) => {
                 <span className="font-medium text-foreground">{member.name}</span>
                 <span className="font-semibold text-foreground">{formatCurrency(member.total)}</span>
               </div>
-              <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-muted-foreground">
+              <div className="mt-2 grid grid-cols-4 gap-2 text-xs text-muted-foreground">
                 <div>
                   <span className="block">Items</span>
                   <span className="font-semibold text-foreground">{formatCurrency(member.itemSubtotal)}</span>
+                </div>
+                <div>
+                  <span className="block">Discount</span>
+                  <span className="font-semibold text-foreground">-{formatCurrency(member.discountShare)}</span>
                 </div>
                 <div>
                   <span className="block">GST</span>
@@ -123,6 +127,8 @@ const ReceiptDetails = ({ bill }) => {
           <p className="text-sm font-semibold text-foreground">Bill totals</p>
           {[
             { label: "Subtotal", value: summary.subtotal },
+            { label: "Discount", value: -summary.discountAmount },
+            { label: "Discounted subtotal", value: summary.discountedSubtotal },
             { label: "GST", value: summary.gstTotal },
             { label: "Service charge", value: summary.serviceChargeTotal },
             { label: "Unassigned", value: summary.unassignedTotal },
@@ -150,6 +156,8 @@ const ReceiptDetails = ({ bill }) => {
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground sm:text-right">
                   <span>Subtotal {formatCurrency(receipt.subtotal)}</span>
+                  <span>Discount -{formatCurrency(receipt.discountAmount)}</span>
+                  <span>Net {formatCurrency(receipt.discountedSubtotal)}</span>
                   <span>GST % {Number(receipt.gstRate || 0).toFixed(2)}</span>
                   <span>GST {formatCurrency(receipt.gstAmount)}</span>
                   <span>Service {formatCurrency(receipt.serviceChargeAmount)}</span>

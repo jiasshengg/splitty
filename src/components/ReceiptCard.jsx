@@ -27,6 +27,7 @@ const ReceiptCard = ({
   itemDraft,
   members,
   isOpen,
+  discountTypeOptions,
   splitModeOptions,
   maxInputLength,
   buildReceiptLabel,
@@ -106,7 +107,7 @@ const ReceiptCard = ({
           <div className="space-y-4 px-4 py-4 sm:px-5">
             <div className="flex flex-col gap-3">
               <div className="w-full space-y-2">
-                <Label htmlFor={`receipt-label-${receipt.id}`}>Receipt label</Label>
+                <Label htmlFor={`receipt-label-${receipt.id}`}>Receipt Label</Label>
                 <Input
                   id={`receipt-label-${receipt.id}`}
                   value={receipt.label}
@@ -119,7 +120,53 @@ const ReceiptCard = ({
               </div>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+              <div className="space-y-2">
+                <Label>Discount type</Label>
+                <Select
+                  value={receipt.discountType}
+                  onValueChange={(value) =>
+                    onReceiptFieldChange(receipt.id, "discountType", value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {discountTypeOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor={`receipt-discount-${receipt.id}`}>
+                  {receipt.discountType === "percentage"
+                    ? "Discount %"
+                    : "Discount amount"}
+                </Label>
+                <Input
+                  id={`receipt-discount-${receipt.id}`}
+                  type="text"
+                  inputMode="decimal"
+                  value={receipt.discountValue}
+                  onChange={(event) =>
+                    onReceiptFieldChange(
+                      receipt.id,
+                      "discountValue",
+                      event.target.value
+                    )
+                  }
+                  maxLength={maxInputLength}
+                  placeholder={
+                    receipt.discountType === "percentage" ? "0" : "0.00"
+                  }
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor={`receipt-gst-rate-${receipt.id}`}>GST %</Label>
                 <Input
@@ -137,13 +184,6 @@ const ReceiptCard = ({
                   maxLength={maxInputLength}
                   placeholder="9"
                 />
-              </div>
-
-              <div className="space-y-2">
-                <Label>GST</Label>
-                <div className="flex h-10 items-center rounded-md border border-input bg-muted/20 px-3 text-sm text-foreground">
-                  {formatCurrency(receiptSummary.gstAmount)}
-                </div>
               </div>
 
               <div className="space-y-2">

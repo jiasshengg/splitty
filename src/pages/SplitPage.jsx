@@ -24,6 +24,11 @@ import {
   RECEIPT_SPLIT_MODES,
   saveBillToHistory,
 } from "@/lib/bills";
+import {
+  calculateItemsSubtotalCents,
+  clampDiscountValue,
+  DISCOUNT_TYPES,
+} from "@/lib/receiptMath";
 import { scanReceiptImages } from "@/lib/receiptScanner";
 import AppNavbar from "@/components/AppNavbar";
 import ReceiptCard from "@/components/ReceiptCard";
@@ -50,6 +55,17 @@ const splitModeOptions = [
   {
     value: RECEIPT_SPLIT_MODES.BY_ITEMS,
     label: "Based on what they ate",
+  },
+];
+
+const discountTypeOptions = [
+  {
+    value: DISCOUNT_TYPES.FIXED,
+    label: "Fixed amount",
+  },
+  {
+    value: DISCOUNT_TYPES.PERCENTAGE,
+    label: "Percentage",
   },
 ];
 
@@ -80,6 +96,8 @@ const createReceipt = (overrides = {}) => ({
   id: createId(),
   label: "",
   items: [],
+  discountType: DISCOUNT_TYPES.FIXED,
+  discountValue: "",
   gstRate: "",
   serviceChargeAmount: "",
   gstSplitMode: RECEIPT_SPLIT_MODES.EQUALLY,
@@ -145,6 +163,25 @@ const sanitizePriceInput = (value) => {
 const getDraftForReceipt = (drafts, receiptId) =>
   drafts[receiptId] || { name: "", price: "" };
 
+const normalizeReceiptForState = (receipt) => {
+  const subtotalCents = calculateItemsSubtotalCents(receipt.items);
+  const discountType =
+    receipt.discountType === DISCOUNT_TYPES.PERCENTAGE
+      ? DISCOUNT_TYPES.PERCENTAGE
+      : DISCOUNT_TYPES.FIXED;
+
+  return {
+    ...receipt,
+    discountType,
+    discountValue:
+      receipt.discountValue === ""
+        ? ""
+        : String(
+            clampDiscountValue(discountType, receipt.discountValue, subtotalCents)
+          ),
+  };
+};
+
 const SplitPage = () => {
   const [billName, setBillName] = useState("");
   const [members, setMembers] = useState(initialMembers);
@@ -156,7 +193,11 @@ const SplitPage = () => {
   const receiptImageInputRef = useRef(null);
 
   const summary = useMemo(
-    () => calculateBillSummary({ members, receipts }),
+    () =>
+      calculateBillSummary({
+        members,
+        receipts,
+      }),
     [members, receipts]
   );
 
@@ -251,10 +292,10 @@ const SplitPage = () => {
     setReceipts((current) =>
       current.map((receipt) =>
         receipt.id === receiptId
-          ? {
+          ? normalizeReceiptForState({
               ...receipt,
               items: [],
-            }
+            })
           : receipt
       )
     );
@@ -273,14 +314,20 @@ const SplitPage = () => {
   const updateReceipt = (receiptId, updater) => {
     setReceipts((current) =>
       current.map((receipt) =>
-        receipt.id === receiptId ? updater(receipt) : receipt
+        receipt.id === receiptId
+          ? normalizeReceiptForState(updater(receipt))
+          : receipt
       )
     );
   };
 
   const handleReceiptFieldChange = (receiptId, field, value) => {
     updateReceipt(receiptId, (receipt) => {
-      if (field === "gstRate" || field === "serviceChargeAmount") {
+      if (
+        field === "gstRate" ||
+        field === "serviceChargeAmount" ||
+        field === "discountValue"
+      ) {
         return {
           ...receipt,
           [field]: sanitizePriceInput(value),
@@ -403,7 +450,8 @@ const SplitPage = () => {
       }
 
       const importedReceipts = scannedReceipts.map((receipt, index) =>
-        createReceipt({
+        normalizeReceiptForState(
+          createReceipt({
           label: limitTextLength(
             String(receipt.label || buildReceiptLabel(receipts.length + index))
           ),
@@ -414,6 +462,13 @@ const SplitPage = () => {
                 Number(sanitizePriceInput(String(item.price || 0)) || 0)
               )
           ),
+          discountType:
+            receipt.discountType === DISCOUNT_TYPES.PERCENTAGE
+              ? DISCOUNT_TYPES.PERCENTAGE
+              : DISCOUNT_TYPES.FIXED,
+          discountValue: sanitizePriceInput(
+            String(receipt.discountValue ?? receipt.discount_value ?? "")
+          ),
           gstRate: sanitizePriceInput(String(receipt.gstRate || "")),
           serviceChargeAmount: sanitizePriceInput(
             String(receipt.serviceChargeAmount ?? receipt.serviceCharge ?? "")
@@ -422,7 +477,8 @@ const SplitPage = () => {
             receipt.gstSplitMode === RECEIPT_SPLIT_MODES.BY_ITEMS
               ? RECEIPT_SPLIT_MODES.BY_ITEMS
               : RECEIPT_SPLIT_MODES.EQUALLY,
-        })
+          })
+        )
       );
 
       setReceipts((current) => [...current, ...importedReceipts]);
@@ -487,8 +543,8 @@ const SplitPage = () => {
             Split a Bill
           </h1>
           <p className="text-sm text-muted-foreground sm:text-base">
-            Add one or more receipts, assign items, and keep GST and service
-            charge tied to the right receipt.
+            Add one or more receipts, assign items, and keep discount, GST,
+            and service charge tied to the right receipt.
           </p>
         </div>
 
@@ -659,6 +715,7 @@ const SplitPage = () => {
                       itemDraft={itemDraft}
                       members={members}
                       isOpen={openReceiptIds[receipt.id] ?? true}
+                      discountTypeOptions={discountTypeOptions}
                       splitModeOptions={splitModeOptions}
                       maxInputLength={maxInputLength}
                       buildReceiptLabel={buildReceiptLabel}
@@ -745,11 +802,17 @@ const SplitPage = () => {
                           </span>
                         </div>
 
-                        <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-muted-foreground">
+                        <div className="mt-2 grid grid-cols-4 gap-2 text-xs text-muted-foreground">
                           <div>
                             <span className="block">Items</span>
                             <span className="font-semibold text-foreground">
                               {formatCurrency(member.itemSubtotal)}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="block">Discount</span>
+                            <span className="font-semibold text-foreground">
+                              -{formatCurrency(member.discountShare)}
                             </span>
                           </div>
                           <div>
@@ -793,6 +856,18 @@ const SplitPage = () => {
                     <span>Subtotal</span>
                     <span className="font-semibold text-foreground">
                       {formatCurrency(summary.subtotal)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>Discount</span>
+                    <span className="font-semibold text-foreground">
+                      -{formatCurrency(summary.discountAmount)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>Discounted subtotal</span>
+                    <span className="font-semibold text-foreground">
+                      {formatCurrency(summary.discountedSubtotal)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-muted-foreground">

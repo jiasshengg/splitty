@@ -1,9 +1,25 @@
+import {
+  allocateProportionally,
+  createRollingEqualAllocator,
+} from "@/lib/billAllocations";
+import {
+  calculateDiscountAmountCents,
+  calculateItemsSubtotalCents,
+  centsToAmount,
+  DISCOUNT_TYPES,
+  normalizeDiscountType,
+  roundToCents,
+  summarizeReceiptAmounts,
+} from "@/lib/receiptMath";
+
 const STORAGE_KEY = "splitpot_bills";
 
 export const RECEIPT_SPLIT_MODES = {
   EQUALLY: "equally",
   BY_ITEMS: "byItems",
 };
+
+export { DISCOUNT_TYPES };
 
 const sampleBills = [
   {
@@ -78,10 +94,6 @@ const toNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const roundToCents = (value) => Math.round(toNumber(value) * 100);
-
-const centsToAmount = (value) => toNumber(value) / 100;
-
 const dedupeIds = (values = []) => {
   const seen = new Set();
 
@@ -115,6 +127,8 @@ const hasValue = (value) =>
 const createLegacyReceipt = (items = [], billId) => ({
   id: `${billId || "bill"}-receipt-1`,
   label: "Receipt 1",
+  discountType: DISCOUNT_TYPES.FIXED,
+  discountValue: 0,
   gstRate: 0,
   gstAmount: 0,
   serviceChargeAmount: 0,
@@ -141,20 +155,12 @@ const normalizeReceipt = (receipt, index, billId) => {
     (sum, item) => sum + roundToCents(item.price),
     0
   );
-  const rawGstRate = toNumber(receipt?.gstRate);
+  const rawGstRate = Math.max(0, toNumber(receipt?.gstRate));
   const legacyGstAmountCents = roundToCents(receipt?.gstAmount ?? receipt?.gst);
-  const gstAmountCents = hasValue(receipt?.gstRate)
-    ? Math.round((subtotalCents * rawGstRate) / 100)
-    : legacyGstAmountCents;
-  const gstRate =
-    hasValue(receipt?.gstRate)
-      ? rawGstRate
-      : subtotalCents > 0 && legacyGstAmountCents > 0
-        ? Number(((legacyGstAmountCents * 100) / subtotalCents).toFixed(4))
-        : 0;
-  const serviceChargeAmountCents = roundToCents(
-    receipt?.serviceChargeAmount ?? receipt?.serviceCharge
-  );
+  const inferredGstRate =
+    subtotalCents > 0 && legacyGstAmountCents > 0
+      ? Number(((legacyGstAmountCents * 100) / subtotalCents).toFixed(4))
+      : 0;
 
   return {
     id: receiptId,
@@ -163,14 +169,73 @@ const normalizeReceipt = (receipt, index, billId) => {
       `Receipt ${index + 1}`,
     items,
     subtotal: centsToAmount(subtotalCents),
-    gstRate,
-    gstAmount: centsToAmount(gstAmountCents),
-    serviceChargeAmount: centsToAmount(serviceChargeAmountCents),
-    total: centsToAmount(
-      subtotalCents + gstAmountCents + serviceChargeAmountCents
+    discountType: normalizeDiscountType(
+      receipt?.discountType ?? receipt?.discount_type
     ),
+    discountValue: toNumber(receipt?.discountValue ?? receipt?.discount_value),
+    gstRate: hasValue(receipt?.gstRate) ? rawGstRate : inferredGstRate,
+    gstAmount: 0,
+    serviceChargeAmount: centsToAmount(
+      roundToCents(receipt?.serviceChargeAmount ?? receipt?.serviceCharge)
+    ),
+    total: centsToAmount(subtotalCents),
     gstSplitMode: normalizeSplitMode(receipt?.gstSplitMode),
   };
+};
+
+const distributeLegacyBillDiscount = (receipts = [], input = {}) => {
+  const legacyDiscountValue = toNumber(
+    input?.discountValue ?? input?.discount_value
+  );
+  const hasLegacyBillDiscount = legacyDiscountValue > 0;
+
+  if (!hasLegacyBillDiscount || receipts.length === 0) {
+    return receipts;
+  }
+
+  const hasReceiptLevelDiscount = receipts.some(
+    (receipt) => toNumber(receipt.discountValue) > 0
+  );
+
+  if (hasReceiptLevelDiscount) {
+    return receipts;
+  }
+
+  const totalSubtotalCents = receipts.reduce(
+    (sum, receipt) => sum + calculateItemsSubtotalCents(receipt.items),
+    0
+  );
+  const totalDiscountCents = calculateDiscountAmountCents(
+    normalizeDiscountType(input?.discountType ?? input?.discount_type),
+    legacyDiscountValue,
+    totalSubtotalCents
+  );
+
+  if (totalDiscountCents <= 0) {
+    return receipts;
+  }
+
+  const receiptKeys = receipts
+    .filter((receipt) => calculateItemsSubtotalCents(receipt.items) > 0)
+    .map((receipt) => receipt.id);
+  const receiptWeights = Object.fromEntries(
+    receiptKeys.map((receiptId) => {
+      const receipt = receipts.find((entry) => entry.id === receiptId);
+      return [receiptId, calculateItemsSubtotalCents(receipt?.items)];
+    })
+  );
+  const discountAllocation = allocateProportionally(
+    totalDiscountCents,
+    receiptKeys,
+    receiptWeights,
+    receiptKeys
+  );
+
+  return receipts.map((receipt) => ({
+    ...receipt,
+    discountType: DISCOUNT_TYPES.FIXED,
+    discountValue: centsToAmount(discountAllocation[receipt.id] || 0),
+  }));
 };
 
 const normalizeBillInput = (input = {}, membersOverride = []) => {
@@ -185,92 +250,33 @@ const normalizeBillInput = (input = {}, membersOverride = []) => {
   const members = normalizeMembers(input?.members ?? membersOverride);
   const hasExplicitReceipts = Array.isArray(input?.receipts);
   const legacyItems = Array.isArray(input?.items) ? input.items : [];
-  const sourceReceipts =
-    hasExplicitReceipts
-      ? input.receipts
-      : legacyItems.length > 0
-        ? [createLegacyReceipt(legacyItems, input?.id)]
-        : [];
+  const sourceReceipts = hasExplicitReceipts
+    ? input.receipts
+    : legacyItems.length > 0
+      ? [createLegacyReceipt(legacyItems, input?.id)]
+      : [];
 
   return {
     members,
-    receipts: sourceReceipts.map((receipt, index) =>
-      normalizeReceipt(receipt, index, input?.id)
+    receipts: distributeLegacyBillDiscount(
+      sourceReceipts.map((receipt, index) =>
+        normalizeReceipt(receipt, index, input?.id)
+      ),
+      input
     ),
   };
 };
 
-const allocateCents = (amountCents, keys = [], weightByKey = {}) => {
-  const normalizedAmount = Math.max(0, Math.round(toNumber(amountCents)));
-  const normalizedKeys = dedupeIds(keys).filter((key) => key !== undefined);
-  const emptyResult = Object.fromEntries(
-    normalizedKeys.map((key) => [key, 0])
-  );
-
-  if (normalizedAmount === 0 || normalizedKeys.length === 0) {
-    return emptyResult;
-  }
-
-  const weights = normalizedKeys.map((key, index) => ({
-    key,
-    index,
-    weight: Math.max(0, toNumber(weightByKey[key] ?? 0)),
-  }));
-  const totalWeight = weights.reduce((sum, entry) => sum + entry.weight, 0);
-
-  if (totalWeight <= 0) {
-    return emptyResult;
-  }
-
-  const baseAllocation = {};
-  let allocated = 0;
-
-  const remainders = weights.map((entry) => {
-    const exact = (normalizedAmount * entry.weight) / totalWeight;
-    const floorValue = Math.floor(exact);
-    allocated += floorValue;
-    baseAllocation[entry.key] = floorValue;
-
-    return {
-      key: entry.key,
-      index: entry.index,
-      remainder: exact - floorValue,
-    };
-  });
-
-  remainders.sort((left, right) => {
-    if (right.remainder !== left.remainder) {
-      return right.remainder - left.remainder;
-    }
-
-    return left.index - right.index;
-  });
-
-  for (let index = 0; index < normalizedAmount - allocated; index += 1) {
-    const target = remainders[index % remainders.length];
-    baseAllocation[target.key] += 1;
-  }
-
-  return {
-    ...emptyResult,
-    ...baseAllocation,
-  };
-};
-
-const allocateEqually = (amountCents, keys = []) => {
-  const weights = Object.fromEntries(
-    dedupeIds(keys).map((key) => [key, 1])
-  );
-  return allocateCents(amountCents, keys, weights);
-};
-
 const summarizeBill = ({ receipts = [], members = [] }) => {
   const memberMap = new Map();
+  const memberOrder = members.map((member) => member.id);
+  const equalAllocator = createRollingEqualAllocator(memberOrder);
 
   members.forEach((member) => {
     memberMap.set(member.id, {
       ...member,
       itemSubtotal: 0,
+      discountShare: 0,
       gstShare: 0,
       serviceChargeShare: 0,
       total: 0,
@@ -278,27 +284,14 @@ const summarizeBill = ({ receipts = [], members = [] }) => {
     });
   });
 
-  let subtotalCents = 0;
-  let gstTotalCents = 0;
-  let serviceChargeTotalCents = 0;
-  let unassignedTotalCents = 0;
-
-  const receiptSummaries = receipts.map((receipt) => {
-    const receiptSubtotalCents = receipt.items.reduce(
-      (sum, item) => sum + roundToCents(item.price),
-      0
-    );
-    const receiptGstCents = roundToCents(receipt.gstAmount);
-    const receiptServiceChargeCents = roundToCents(
-      receipt.serviceChargeAmount
-    );
+  const receiptStates = receipts.map((receipt) => {
     const memberItemCents = Object.fromEntries(
       members.map((member) => [member.id, 0])
     );
     const assignedCounts = Object.fromEntries(
       members.map((member) => [member.id, 0])
     );
-    let receiptUnassignedCents = 0;
+    let unassignedItemCents = 0;
 
     const items = receipt.items.map((item) => {
       const priceCents = roundToCents(item.price);
@@ -307,10 +300,17 @@ const summarizeBill = ({ receipts = [], members = [] }) => {
       );
 
       if (assignedTo.length === 0) {
-        receiptUnassignedCents += priceCents;
+        unassignedItemCents += priceCents;
+
+        return {
+          ...item,
+          assignedTo,
+          price: centsToAmount(priceCents),
+          splitByMember: [],
+        };
       }
 
-      const itemAllocation = allocateEqually(priceCents, assignedTo);
+      const itemAllocation = equalAllocator.allocate(priceCents, assignedTo);
 
       assignedTo.forEach((memberId) => {
         memberItemCents[memberId] += itemAllocation[memberId] || 0;
@@ -331,40 +331,126 @@ const summarizeBill = ({ receipts = [], members = [] }) => {
     const involvedMemberIds = members
       .map((member) => member.id)
       .filter((memberId) => assignedCounts[memberId] > 0);
+    const receiptAmounts = summarizeReceiptAmounts({
+      items: receipt.items,
+      discountType: receipt.discountType,
+      discountValue: receipt.discountValue,
+      gstRate: receipt.gstRate,
+    });
+
+    return {
+      receipt,
+      items,
+      subtotalCents: receiptAmounts.subtotalCents,
+      discountType: receiptAmounts.discountType,
+      discountValue: receiptAmounts.discountValue,
+      discountAmountCents: receiptAmounts.discountAmountCents,
+      discountedSubtotalCents: receiptAmounts.discountedSubtotalCents,
+      memberItemCents,
+      involvedMemberIds,
+      unassignedItemCents,
+      serviceChargeAmountCents: roundToCents(receipt.serviceChargeAmount),
+      gstRate: receiptAmounts.gstRate,
+      gstAmountCents: receiptAmounts.gstAmountCents,
+      gstSplitMode: normalizeSplitMode(receipt.gstSplitMode),
+    };
+  });
+
+  const subtotalCents = receiptStates.reduce(
+    (sum, receiptState) => sum + receiptState.subtotalCents,
+    0
+  );
+
+  let gstTotalCents = 0;
+  let serviceChargeTotalCents = 0;
+  let unassignedTotalCents = 0;
+
+  const receiptSummaries = receiptStates.map((receiptState) => {
+    const receiptDiscountKeys = [];
+    const receiptDiscountWeights = {};
+
+    members.forEach((member) => {
+      const weight = receiptState.memberItemCents[member.id] || 0;
+
+      if (weight <= 0) {
+        return;
+      }
+
+      receiptDiscountKeys.push(`member:${member.id}`);
+      receiptDiscountWeights[`member:${member.id}`] = weight;
+    });
+
+    if (receiptState.unassignedItemCents > 0) {
+      receiptDiscountKeys.push("unassigned");
+      receiptDiscountWeights.unassigned = receiptState.unassignedItemCents;
+    }
+
+    const receiptDiscountAllocation = allocateProportionally(
+      receiptState.discountAmountCents,
+      receiptDiscountKeys,
+      receiptDiscountWeights,
+      receiptDiscountKeys
+    );
+    const receiptDiscountCents = receiptState.discountAmountCents;
+    const receiptGstCents = receiptState.gstAmountCents;
+    const receiptServiceChargeCents = receiptState.serviceChargeAmountCents;
+    const memberNetSubtotalCents = Object.fromEntries(
+      members.map((member) => {
+        const discountShare =
+          receiptDiscountAllocation[`member:${member.id}`] || 0;
+
+        return [
+          member.id,
+          (receiptState.memberItemCents[member.id] || 0) - discountShare,
+        ];
+      })
+    );
+    const receiptUnassignedDiscountCents =
+      receiptDiscountAllocation.unassigned || 0;
+    let receiptUnassignedCents =
+      receiptState.unassignedItemCents - receiptUnassignedDiscountCents;
 
     const gstAllocation =
-      receipt.gstSplitMode === RECEIPT_SPLIT_MODES.BY_ITEMS
-        ? allocateCents(receiptGstCents, involvedMemberIds, memberItemCents)
-        : allocateEqually(receiptGstCents, involvedMemberIds);
+      receiptState.gstSplitMode === RECEIPT_SPLIT_MODES.BY_ITEMS
+        ? allocateProportionally(
+            receiptGstCents,
+            receiptState.involvedMemberIds,
+            memberNetSubtotalCents,
+            memberOrder
+          )
+        : equalAllocator.allocate(receiptGstCents, receiptState.involvedMemberIds);
 
-    const serviceChargeAllocation = allocateEqually(
+    const serviceChargeAllocation = equalAllocator.allocate(
       receiptServiceChargeCents,
-      involvedMemberIds
+      receiptState.involvedMemberIds
     );
 
-    if (involvedMemberIds.length === 0) {
+    if (receiptState.involvedMemberIds.length === 0) {
       receiptUnassignedCents += receiptGstCents + receiptServiceChargeCents;
     }
 
     const memberBreakdown = members.map((member) => {
-      const itemSubtotal = memberItemCents[member.id] || 0;
+      const discountShare = receiptDiscountAllocation[`member:${member.id}`] || 0;
+      const itemSubtotal = memberNetSubtotalCents[member.id] || 0;
       const gstShare = gstAllocation[member.id] || 0;
       const serviceChargeShare = serviceChargeAllocation[member.id] || 0;
       const total = itemSubtotal + gstShare + serviceChargeShare;
       const memberSummary = memberMap.get(member.id);
 
       memberSummary.itemSubtotal += itemSubtotal;
+      memberSummary.discountShare += discountShare;
       memberSummary.gstShare += gstShare;
       memberSummary.serviceChargeShare += serviceChargeShare;
       memberSummary.total += total;
       memberSummary.receipts.push({
-        receiptId: receipt.id,
-        receiptLabel: receipt.label,
+        receiptId: receiptState.receipt.id,
+        receiptLabel: receiptState.receipt.label,
         itemSubtotal: centsToAmount(itemSubtotal),
+        discountShare: centsToAmount(discountShare),
         gstShare: centsToAmount(gstShare),
         serviceChargeShare: centsToAmount(serviceChargeShare),
         total: centsToAmount(total),
-        isInvolved: involvedMemberIds.includes(member.id),
+        isInvolved: receiptState.involvedMemberIds.includes(member.id),
       });
 
       return {
@@ -372,34 +458,44 @@ const summarizeBill = ({ receipts = [], members = [] }) => {
         name: member.name,
         color: member.color,
         itemSubtotal: centsToAmount(itemSubtotal),
+        discountShare: centsToAmount(discountShare),
         gstShare: centsToAmount(gstShare),
         serviceChargeShare: centsToAmount(serviceChargeShare),
         total: centsToAmount(total),
-        isInvolved: involvedMemberIds.includes(member.id),
+        isInvolved: receiptState.involvedMemberIds.includes(member.id),
       };
     });
 
-    subtotalCents += receiptSubtotalCents;
     gstTotalCents += receiptGstCents;
     serviceChargeTotalCents += receiptServiceChargeCents;
     unassignedTotalCents += receiptUnassignedCents;
 
     return {
-      ...receipt,
-      items,
-      subtotal: centsToAmount(receiptSubtotalCents),
+      ...receiptState.receipt,
+      items: receiptState.items,
+      subtotal: centsToAmount(receiptState.subtotalCents),
+      discountType: receiptState.discountType,
+      discountValue: receiptState.discountValue,
+      discountAmount: centsToAmount(receiptDiscountCents),
+      discountedSubtotal: centsToAmount(receiptState.discountedSubtotalCents),
+      gstRate: receiptState.gstRate,
       gstAmount: centsToAmount(receiptGstCents),
       serviceChargeAmount: centsToAmount(receiptServiceChargeCents),
       total: centsToAmount(
-        receiptSubtotalCents + receiptGstCents + receiptServiceChargeCents
+        receiptState.discountedSubtotalCents + receiptGstCents + receiptServiceChargeCents
       ),
       unassignedTotal: centsToAmount(receiptUnassignedCents),
       members: memberBreakdown,
-      involvedMemberIds,
+      involvedMemberIds: receiptState.involvedMemberIds,
     };
   });
 
-  const totalCents = subtotalCents + gstTotalCents + serviceChargeTotalCents;
+  const discountAmountCents = receiptStates.reduce(
+    (sum, receiptState) => sum + receiptState.discountAmountCents,
+    0
+  );
+  const discountedSubtotalCents = subtotalCents - discountAmountCents;
+  const totalCents = discountedSubtotalCents + gstTotalCents + serviceChargeTotalCents;
   const flattenedItems = receiptSummaries.flatMap((receipt) => receipt.items);
   const memberSummaries = members.map((member) => {
     const summary = memberMap.get(member.id);
@@ -407,6 +503,7 @@ const summarizeBill = ({ receipts = [], members = [] }) => {
     return {
       ...summary,
       itemSubtotal: centsToAmount(summary.itemSubtotal),
+      discountShare: centsToAmount(summary.discountShare),
       gstShare: centsToAmount(summary.gstShare),
       serviceChargeShare: centsToAmount(summary.serviceChargeShare),
       total: centsToAmount(summary.total),
@@ -418,6 +515,8 @@ const summarizeBill = ({ receipts = [], members = [] }) => {
     members: memberSummaries,
     items: flattenedItems,
     subtotal: centsToAmount(subtotalCents),
+    discountAmount: centsToAmount(discountAmountCents),
+    discountedSubtotal: centsToAmount(discountedSubtotalCents),
     gstTotal: centsToAmount(gstTotalCents),
     serviceChargeTotal: centsToAmount(serviceChargeTotalCents),
     total: centsToAmount(totalCents),
@@ -428,11 +527,23 @@ const summarizeBill = ({ receipts = [], members = [] }) => {
 };
 
 const normaliseStoredBill = (bill) => {
+  const {
+    discountType: _legacyDiscountType,
+    discountValue: _legacyDiscountValue,
+    discount_type: _legacyDiscountTypeSnake,
+    discount_value: _legacyDiscountValueSnake,
+    ...restBill
+  } = bill;
   const { members, receipts } = normalizeBillInput(bill);
-  const summary = summarizeBill({ members, receipts });
+  const summary = summarizeBill({
+    members,
+    receipts,
+  });
 
   return {
-    ...bill,
+    ...restBill,
+    discountAmount: summary.discountAmount,
+    discountedSubtotal: summary.discountedSubtotal,
     subtotal: summary.subtotal,
     gstTotal: summary.gstTotal,
     serviceChargeTotal: summary.serviceChargeTotal,
@@ -451,6 +562,12 @@ const normaliseStoredBill = (bill) => {
         assignedTo: item.assignedTo,
       })),
       subtotal: receipt.subtotal,
+      discountType: receipt.discountType,
+      discountValue: receipt.discountValue,
+      discount_type: receipt.discountType,
+      discount_value: receipt.discountValue,
+      discountAmount: receipt.discountAmount,
+      discountedSubtotal: receipt.discountedSubtotal,
       gstRate: receipt.gstRate,
       gstAmount: receipt.gstAmount,
       serviceChargeAmount: receipt.serviceChargeAmount,
@@ -483,7 +600,11 @@ export const formatBillDate = (value) => {
 
 export const calculateBillSummary = (input = {}, membersOverride = []) => {
   const { members, receipts } = normalizeBillInput(input, membersOverride);
-  return summarizeBill({ members, receipts });
+
+  return summarizeBill({
+    members,
+    receipts,
+  });
 };
 
 export const calculateMemberTotals = (input = {}, membersOverride = []) =>
@@ -496,7 +617,9 @@ export const getStoredBills = () => {
   if (!hasLocalStorage()) {
     return sampleBills
       .map(normaliseStoredBill)
-      .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt));
+      .sort(
+        (left, right) => new Date(right.createdAt) - new Date(left.createdAt)
+      );
   }
 
   const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -506,7 +629,9 @@ export const getStoredBills = () => {
 
     return sampleBills
       .map(normaliseStoredBill)
-      .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt));
+      .sort(
+        (left, right) => new Date(right.createdAt) - new Date(left.createdAt)
+      );
   }
 
   try {
@@ -524,13 +649,17 @@ export const getStoredBills = () => {
 
     return parsed
       .map(normaliseStoredBill)
-      .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt));
+      .sort(
+        (left, right) => new Date(right.createdAt) - new Date(left.createdAt)
+      );
   } catch {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(sampleBills));
 
     return sampleBills
       .map(normaliseStoredBill)
-      .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt));
+      .sort(
+        (left, right) => new Date(right.createdAt) - new Date(left.createdAt)
+      );
   }
 };
 
@@ -542,18 +671,24 @@ export const saveStoredBills = (bills) => {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(bills));
 };
 
-export const saveBillToHistory = ({ billName, members, receipts }) => {
-  const normalizedMembers = normalizeMembers(members);
-  const normalizedReceipts = normalizeBillInput({ receipts, members }).receipts;
-  const summary = summarizeBill({
-    members: normalizedMembers,
-    receipts: normalizedReceipts,
+export const saveBillToHistory = ({
+  billName,
+  members,
+  receipts,
+}) => {
+  const normalizedInput = normalizeBillInput({
+    receipts,
+    members,
   });
+  const normalizedMembers = normalizedInput.members;
+  const summary = summarizeBill(normalizedInput);
 
   const newBill = {
     id: String(Date.now()),
     billName: billName.trim(),
     createdAt: new Date().toISOString(),
+    discountAmount: summary.discountAmount,
+    discountedSubtotal: summary.discountedSubtotal,
     subtotal: summary.subtotal,
     gstTotal: summary.gstTotal,
     serviceChargeTotal: summary.serviceChargeTotal,
@@ -577,6 +712,12 @@ export const saveBillToHistory = ({ billName, members, receipts }) => {
         assignedTo: item.assignedTo,
       })),
       subtotal: receipt.subtotal,
+      discountType: receipt.discountType,
+      discountValue: receipt.discountValue,
+      discount_type: receipt.discountType,
+      discount_value: receipt.discountValue,
+      discountAmount: receipt.discountAmount,
+      discountedSubtotal: receipt.discountedSubtotal,
       gstRate: receipt.gstRate,
       gstAmount: receipt.gstAmount,
       serviceChargeAmount: receipt.serviceChargeAmount,
