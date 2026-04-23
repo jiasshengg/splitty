@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const scannerRouter = require('./routers/scannerRouter');
 const userRouter = require('./routers/userRouter');
+const billRouter = require('./routers/billRouter');
 const sessionMiddleware = require('./middleware/sessionMiddleware');
 
 async function createApp() {
@@ -10,7 +11,7 @@ async function createApp() {
 
   app.use(
     cors({
-      origin: process.env.FRONTEND_URL || 'http://127.0.0.1:3000',
+      origin: 'http://127.0.0.1:3000',
       credentials: true,
     })
   );
@@ -24,6 +25,7 @@ async function createApp() {
 
   app.use('/api/scan', scannerRouter);
   app.use('/api/users', userRouter);
+  app.use('/api/bills', billRouter);
 
   app.use(function (req, res) {
     res.status(404).json({

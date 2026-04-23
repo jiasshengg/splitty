@@ -7,6 +7,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum DiscountType {
+  fixed
+  percentage
+}
+
 model bill_item_assignments {
   id                Int               @id @default(autoincrement())
   item_id           Int
@@ -15,15 +20,19 @@ model bill_item_assignments {
   bill_participants bill_participants @relation(fields: [participant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([item_id, participant_id])
+  @@index([item_id])
+  @@index([participant_id])
 }
 
 model bill_items {
   id                    Int                     @id @default(autoincrement())
   receipt_id            Int
-  item_name             String                  @db.VarChar(30)
+  item_name             String                  @db.VarChar(255)
   price                 Decimal                 @db.Decimal(10, 2)
   bill_item_assignments bill_item_assignments[]
   bill_receipts         bill_receipts           @relation(fields: [receipt_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([receipt_id])
 }
 
 model bill_participants {
@@ -32,18 +41,23 @@ model bill_participants {
   name                  String                  @db.VarChar(255)
   bill_item_assignments bill_item_assignments[]
   bills                 bills                   @relation(fields: [bill_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([bill_id])
 }
 
 model bill_receipts {
-  id               Int        @id @default(autoincrement())
-  bill_id          Int
-  receipt_name     String?    @db.VarChar(255)
-  gst_rate         Decimal    @default(0.00) @db.Decimal(5, 2)
-  discount_type    String?    @db.VarChar(20)
-  discount_value   Decimal    @default(0.00) @db.Decimal(10, 2)
-  created_at       DateTime   @default(now()) @db.Timestamptz(6)
-  bills            bills      @relation(fields: [bill_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  bill_items       bill_items[]
+  id             Int           @id @default(autoincrement())
+  bill_id        Int
+  receipt_name   String?       @db.VarChar(255)
+  gst_rate       Decimal       @default(0.00) @db.Decimal(5, 2)
+  service_charge Decimal       @default(0.00) @db.Decimal(10, 2)
+  discount_type  DiscountType? @default(fixed)
+  discount_value Decimal       @default(0.00) @db.Decimal(10, 2)
+  created_at     DateTime      @default(now()) @db.Timestamptz(6)
+  bill_items     bill_items[]
+  bills          bills         @relation(fields: [bill_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([bill_id])
 }
 
 model bills {
@@ -55,6 +69,8 @@ model bills {
   bill_receipts     bill_receipts[]
   bill_participants bill_participants[]
   users             users               @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "constraint_1")
+
+  @@index([user_id])
 }
 
 model user_settings {
@@ -62,21 +78,23 @@ model user_settings {
   user_id   Int
   dark_mode Boolean @default(false)
   users     users   @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "constraint_1")
+
+  @@index([user_id])
 }
 
 model users {
-  id            Int             @id @default(autoincrement())
-  username      String          @unique @db.VarChar(30)
-  email         String          @unique @db.VarChar(50)
-  password      String          @db.VarChar(255)
-  resetPasswordToken      String?         @map("reset_password_token") @db.VarChar(255)
+  id                     Int             @id @default(autoincrement())
+  username               String          @unique @db.VarChar(30)
+  email                  String          @unique @db.VarChar(50)
+  password               String          @db.VarChar(255)
+  resetPasswordToken     String?         @map("reset_password_token") @db.VarChar(255)
   resetPasswordExpiresAt DateTime?       @map("reset_password_expires_at") @db.Timestamptz(6)
-  created_at    DateTime        @default(now()) @db.Timestamptz(6)
-  updated_at    DateTime?       @db.Timestamptz(6)
-  role          Int
-  bills         bills[]
-  user_settings user_settings[]
-  user_role     user_role       @relation(fields: [role], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "constraint_1")
+  created_at             DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime?       @db.Timestamptz(6)
+  role                   Int
+  bills                  bills[]
+  user_settings          user_settings[]
+  user_role              user_role       @relation(fields: [role], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "constraint_1")
 }
 
 model user_role {
