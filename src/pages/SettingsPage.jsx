@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,94 +26,52 @@ import {
   Shield,
   UserRound,
   Trash2,
-  Pencil,
-  Save,
-  X,
   LockKeyhole,
 } from "lucide-react";
 import { useTheme } from "@/context/ThemeContext";
 import { toast } from "@/hooks/use-toast";
 import {
-  clearStoredAccount,
   formatJoinedDate,
   getAccountDisplayName,
-  getStoredAccount,
-  saveStoredAccount,
 } from "@/lib/account";
 import AppNavbar from "@/components/AppNavbar";
+import { getSessionUser } from "@/lib/session";
 
 const SettingsPage = () => {
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useTheme();
-
-  const initialAccount = useMemo(() => getStoredAccount(), []);
-
-  const [accountForm, setAccountForm] = useState(initialAccount);
-  const [savedAccount, setSavedAccount] = useState(initialAccount);
-  const [isEditingAccount, setIsEditingAccount] = useState(false);
+  const [account, setAccount] = useState(null);
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   });
 
-  const handleAccountFieldChange = (field, value) => {
-    setAccountForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadSessionUser = async () => {
+      const user = await getSessionUser();
+
+      if (!isMounted) {
+        return;
+      }
+
+      setAccount(user);
+    };
+
+    loadSessionUser();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handlePasswordFieldChange = (field, value) => {
     setPasswordForm((prev) => ({
       ...prev,
       [field]: value,
     }));
-  };
-
-  const handleSaveAccount = (e) => {
-    e.preventDefault();
-
-    const trimmedAccount = {
-      ...accountForm,
-      username: accountForm.username.trim(),
-      email: accountForm.email.trim(),
-    };
-
-    if (!trimmedAccount.username || !trimmedAccount.email) {
-      toast({
-        title: "Unable to save account details",
-        description: "Please fill in your username and email.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const looksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedAccount.email);
-
-    if (!looksLikeEmail) {
-      toast({
-        title: "Invalid email address",
-        description: "Please enter a valid email before saving.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const updatedAccount = saveStoredAccount(trimmedAccount);
-    setSavedAccount(updatedAccount);
-    setAccountForm(updatedAccount);
-    setIsEditingAccount(false);
-
-    toast({
-      title: "Account updated",
-      description: "Your account details have been saved.",
-    });
-  };
-
-  const handleCancelAccountEdit = () => {
-    setAccountForm(savedAccount);
-    setIsEditingAccount(false);
   };
 
   const handleChangePassword = (e) => {
@@ -160,13 +118,12 @@ const SettingsPage = () => {
     });
   };
 
-  const handleDeleteAccount = () => {
-    clearStoredAccount();
+  const handleClearHistory = () => {
     window.localStorage.removeItem("splitpot_bills");
 
     toast({
-      title: "Account deleted",
-      description: "Your locally stored account details have been removed.",
+      title: "Saved bill history cleared",
+      description: "Your locally saved split history has been removed from this browser.",
     });
 
     navigate("/");
@@ -209,7 +166,7 @@ const SettingsPage = () => {
                   <Moon className="h-5 w-5 text-primary" />
                   Appearance
                 </CardTitle>
-                <CardDescription>Customize how SplitPot looks</CardDescription>
+                <CardDescription>Customize how Splitty looks</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -279,75 +236,49 @@ const SettingsPage = () => {
 
           <TabsContent value="account" className="mt-6 space-y-6">
             <Card className="border shadow-md">
-              <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <CardHeader>
                 <div>
                   <CardTitle className="flex items-center gap-2 text-lg font-bold">
                     <UserRound className="h-5 w-5 text-primary" />
                     Account Details
                   </CardTitle>
                   <CardDescription>
-                    View and update your account information here.
+                    View the current account information from your active session.
                   </CardDescription>
                 </div>
-                {!isEditingAccount ? (
-                  <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setIsEditingAccount(true)}>
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Edit
-                  </Button>
-                ) : null}
               </CardHeader>
-              <CardContent>
-                <form className="space-y-5" onSubmit={handleSaveAccount}>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="settings-username">Username</Label>
-                      <Input
-                        id="settings-username"
-                        value={accountForm.username}
-                        disabled={!isEditingAccount}
-                        onChange={(e) => handleAccountFieldChange("username", e.target.value)}
-                      />
-                    </div>
+              <CardContent className="space-y-5">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="settings-username">Username</Label>
+                    <Input
+                      id="settings-username"
+                      value={account?.username || ""}
+                      disabled
+                      readOnly
+                    />
+                  </div>
+                </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="settings-email">Email</Label>
-                      <Input
-                        id="settings-email"
-                        type="email"
-                        value={accountForm.email}
-                        disabled={!isEditingAccount}
-                        onChange={(e) => handleAccountFieldChange("email", e.target.value)}
-                      />
+                <div className="rounded-xl border bg-muted/30 p-4">
+                  <p className="text-sm font-semibold text-foreground">Account Summary</p>
+                  <div className="mt-3 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
+                    <div>
+                      <span className="block text-xs uppercase tracking-wide">Display Name</span>
+                      <span className="font-medium text-foreground">
+                        {getAccountDisplayName(account) || "Unavailable"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-xs uppercase tracking-wide">Joined</span>
+                      <span className="font-medium text-foreground">{formatJoinedDate(account?.createdAt)}</span>
                     </div>
                   </div>
+                </div>
 
-                  <div className="rounded-xl border bg-muted/30 p-4">
-                    <p className="text-sm font-semibold text-foreground">Account Summary</p>
-                    <div className="mt-3 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
-                      <div>
-                        <span className="block text-xs uppercase tracking-wide">Display Name</span>
-                        <span className="font-medium text-foreground">{getAccountDisplayName(savedAccount)}</span>
-                      </div>
-                      <div>
-                        <span className="block text-xs uppercase tracking-wide">Joined</span>
-                        <span className="font-medium text-foreground">{formatJoinedDate(savedAccount.createdAt)}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {isEditingAccount ? (
-                    <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-                      <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={handleCancelAccountEdit}>
-                        <X className="mr-2 h-4 w-4" />
-                        Cancel
-                      </Button>
-                      <Button type="submit" className="w-full sm:w-auto">
-                        <Save className="mr-2 h-4 w-4" />
-                        Save Changes
-                      </Button>
-                    </div>
-                  ) : null}
-                </form>
+                <div className="rounded-xl border bg-muted/30 p-4 text-sm text-muted-foreground">
+                  Account details are no longer stored on the frontend. If you want editable account settings here, wire this page to a backend update endpoint.
+                </div>
               </CardContent>
             </Card>
 
@@ -355,30 +286,30 @@ const SettingsPage = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg font-bold text-destructive">
                   <Trash2 className="h-5 w-5" />
-                  Delete Account
+                  Clear Saved History
                 </CardTitle>
                 <CardDescription>
-                  This removes your locally stored account details and saved bill history on this device.
+                  This removes locally saved split history on this device. It does not delete your backend account.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="destructive" className="w-full sm:w-auto">
-                      Delete Account
+                      Clear History
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent className="w-[calc(100%-2rem)] sm:w-full">
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Are you sure you want to delete this account?</AlertDialogTitle>
+                      <AlertDialogTitle>Are you sure you want to clear your saved history?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This action will clear the stored account details and receipt history from this browser.
+                        This action will clear your saved receipt history from this browser.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleDeleteAccount}>
-                        Delete Account
+                      <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleClearHistory}>
+                        Clear History
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>

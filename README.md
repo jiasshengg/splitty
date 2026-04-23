@@ -1,6 +1,6 @@
-## What is SplitPot
+## What is Splitty
 
-SplitPot is a bill-splitting web app that helps users divide shared expenses fairly and clearly.
+Splitty is a bill-splitting web app that helps users divide shared expenses fairly and clearly.
 
 Users can create a bill, give it a name, add the people involved, and enter the items from a receipt with their prices. Each item can then be assigned to one or more people based on who actually used or shared it. The app automatically calculates how much each person owes based on those assignments.
 

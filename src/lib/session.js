@@ -1,5 +1,3 @@
-import { clearStoredAccount, syncSessionAccount } from '@/lib/account';
-
 const SESSION_BASE_URL = '/api/users';
 
 const parseResponse = async (response) => {
@@ -24,13 +22,7 @@ export async function loginSession({ username, password }) {
   });
 
   const payload = await parseResponse(response);
-  const user = payload?.data ?? null;
-
-  if (user?.username) {
-    syncSessionAccount(user);
-  }
-
-  return user;
+  return payload?.data ?? null;
 }
 
 export async function registerSession({ username, email, password }) {
@@ -50,7 +42,7 @@ export async function registerSession({ username, email, password }) {
   return payload?.data ?? null;
 }
 
-export async function checkSession() {
+export async function getSessionUser() {
   try {
     const response = await fetch(`${SESSION_BASE_URL}/is-logged-in`, {
       method: 'GET',
@@ -58,17 +50,15 @@ export async function checkSession() {
     });
 
     const payload = await parseResponse(response);
-    const user = payload?.data ?? null;
-
-    if (user?.username) {
-      syncSessionAccount(user);
-      return true;
-    }
-
-    return false;
+    return payload?.data ?? null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+export async function checkSession() {
+  const user = await getSessionUser();
+  return Boolean(user?.username);
 }
 
 export async function logoutSession() {
@@ -79,7 +69,6 @@ export async function logoutSession() {
     });
 
     await parseResponse(response);
-    clearStoredAccount();
     return true;
   } catch {
     return false;

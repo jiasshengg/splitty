@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  ArrowLeft,
   Receipt,
   Calendar,
   Settings,
@@ -27,7 +26,8 @@ import {
   getStoredBills,
 } from "@/lib/bills";
 import AppNavbar from "@/components/AppNavbar";
-import { getAccountDisplayName, getAccountInitials, getStoredAccount } from "@/lib/account";
+import { getAccountDisplayName, getAccountInitials } from "@/lib/account";
+import { getSessionUser } from "@/lib/session";
 
 const ReceiptHistoryRow = ({ bill, onViewDetails, showSeparator = false }) => (
   <div>
@@ -132,9 +132,29 @@ const ReceiptDetails = ({ bill }) => {
 const ProfilePage = () => {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [selectedBill, setSelectedBill] = useState(null);
+  const [account, setAccount] = useState(null);
   const history = useMemo(() => getStoredBills(), []);
-  const account = useMemo(() => getStoredAccount(), []);
   const displayName = getAccountDisplayName(account) || "Your account";
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadSessionUser = async () => {
+      const user = await getSessionUser();
+
+      if (!isMounted) {
+        return;
+      }
+
+      setAccount(user);
+    };
+
+    loadSessionUser();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const totalSpent = useMemo(
     () => history.reduce((sum, bill) => sum + Number(bill.total || 0), 0),
@@ -176,21 +196,21 @@ const ProfilePage = () => {
             </div>
 
             <div className="flex min-h-[72px] items-center gap-4 pr-20 sm:min-h-[80px] sm:gap-5 sm:pr-28">
-                <Avatar className="h-16 w-16 shrink-0 border-4 border-background shadow-md sm:h-20 sm:w-20">
-                  <AvatarImage src="" />
-                  <AvatarFallback className="bg-primary text-lg font-bold text-primary-foreground sm:text-xl">
-                    {getAccountInitials(account)}
-                  </AvatarFallback>
-                </Avatar>
+              <Avatar className="h-16 w-16 shrink-0 border-4 border-background shadow-md sm:h-20 sm:w-20">
+                <AvatarImage src="" />
+                <AvatarFallback className="bg-primary text-lg font-bold text-primary-foreground sm:text-xl">
+                  {getAccountInitials(account)}
+                </AvatarFallback>
+              </Avatar>
               <div className="min-w-0 flex-1 text-left">
                 <h1 className="truncate text-xl font-extrabold leading-tight text-foreground sm:text-2xl">
                   {displayName}
                 </h1>
-                {account.username ? (
+                {account?.username ? (
                   <p className="truncate pt-1 text-sm text-muted-foreground">@{account.username}</p>
                 ) : (
                   <p className="truncate pt-1 text-sm text-muted-foreground">
-                    Sign in to see your saved account details.
+                    Sign in to see your current session details.
                   </p>
                 )}
               </div>
