@@ -134,6 +134,7 @@ const ProfilePage = () => {
   const [selectedBill, setSelectedBill] = useState(null);
   const history = useMemo(() => getStoredBills(), []);
   const account = useMemo(() => getStoredAccount(), []);
+  const displayName = getAccountDisplayName(account) || "Your account";
 
   const totalSpent = useMemo(
     () => history.reduce((sum, bill) => sum + Number(bill.total || 0), 0),
@@ -175,17 +176,23 @@ const ProfilePage = () => {
             </div>
 
             <div className="flex min-h-[72px] items-center gap-4 pr-20 sm:min-h-[80px] sm:gap-5 sm:pr-28">
-              <Avatar className="h-16 w-16 shrink-0 border-4 border-background shadow-md sm:h-20 sm:w-20">
-                <AvatarImage src="" />
-                <AvatarFallback className="bg-primary text-lg font-bold text-primary-foreground sm:text-xl">
-                  {getAccountInitials(account)}
-                </AvatarFallback>
-              </Avatar>
+                <Avatar className="h-16 w-16 shrink-0 border-4 border-background shadow-md sm:h-20 sm:w-20">
+                  <AvatarImage src="" />
+                  <AvatarFallback className="bg-primary text-lg font-bold text-primary-foreground sm:text-xl">
+                    {getAccountInitials(account)}
+                  </AvatarFallback>
+                </Avatar>
               <div className="min-w-0 flex-1 text-left">
                 <h1 className="truncate text-xl font-extrabold leading-tight text-foreground sm:text-2xl">
-                  {getAccountDisplayName(account)}
+                  {displayName}
                 </h1>
-                <p className="truncate pt-1 text-sm text-muted-foreground">@{account.username}</p>
+                {account.username ? (
+                  <p className="truncate pt-1 text-sm text-muted-foreground">@{account.username}</p>
+                ) : (
+                  <p className="truncate pt-1 text-sm text-muted-foreground">
+                    Sign in to see your saved account details.
+                  </p>
+                )}
               </div>
             </div>
           </CardContent>

@@ -1,43 +1,31 @@
 const STORAGE_KEY = "splitpot_account";
 
-const defaultAccount = {
-  firstName: "John",
-  lastName: "Doe",
-  username: "johndoe",
-  email: "johndoe@email.com",
-  createdAt: "2026-01-10T10:00:00.000Z",
-};
-
 const hasLocalStorage = () => typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 
 const normalizeAccount = (account = {}) => ({
-  firstName: String(account.firstName || defaultAccount.firstName).trim(),
-  lastName: String(account.lastName || defaultAccount.lastName).trim(),
-  username: String(account.username || defaultAccount.username).trim(),
-  email: String(account.email || defaultAccount.email).trim(),
-  createdAt: String(account.createdAt || defaultAccount.createdAt),
+  username: String(account.username || "").trim(),
+  email: String(account.email || "").trim(),
+  createdAt: account.createdAt ? String(account.createdAt) : null,
 });
 
 export const getStoredAccount = () => {
   if (!hasLocalStorage()) {
-    return defaultAccount;
+    return normalizeAccount();
   }
 
   const raw = window.localStorage.getItem(STORAGE_KEY);
 
   if (!raw) {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultAccount));
-    return defaultAccount;
+    return normalizeAccount();
   }
 
   try {
     const parsed = JSON.parse(raw);
     const normalized = normalizeAccount(parsed);
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
     return normalized;
   } catch {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultAccount));
-    return defaultAccount;
+    window.localStorage.removeItem(STORAGE_KEY);
+    return normalizeAccount();
   }
 };
 
@@ -57,6 +45,7 @@ export const syncSessionAccount = (sessionUser = {}) => {
   return saveStoredAccount({
     ...existingAccount,
     username: sessionUser.username || existingAccount.username,
+    createdAt: existingAccount.createdAt || new Date().toISOString(),
   });
 };
 
@@ -68,24 +57,20 @@ export const clearStoredAccount = () => {
   window.localStorage.removeItem(STORAGE_KEY);
 };
 
-export const getAccountDisplayName = (account = defaultAccount) =>
-  String(account.username || "").trim() || `${account.firstName || ""} ${account.lastName || ""}`.trim() || defaultAccount.username;
+export const getAccountDisplayName = (account = {}) =>
+  String(account?.username || "").trim();
 
-export const getAccountFullName = (account = defaultAccount) =>
-  `${account.firstName || ""} ${account.lastName || ""}`.trim() || defaultAccount.firstName;
+export const getAccountFullName = (account = {}) =>
+  String(account?.username || "").trim();
 
-export const getAccountInitials = (account = defaultAccount) => {
-  const username = String(account.username || "").trim();
+export const getAccountInitials = (account = {}) => {
+  const username = String(account?.username || "").trim();
 
   if (username) {
     return username.slice(0, 2).toUpperCase();
   }
 
-  const firstInitial = String(account.firstName || "").trim().charAt(0);
-  const lastInitial = String(account.lastName || "").trim().charAt(0);
-  const initials = `${firstInitial}${lastInitial}`.toUpperCase();
-
-  return initials || "SP";
+  return "U";
 };
 
 export const formatJoinedDate = (value) => {

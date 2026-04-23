@@ -76,16 +76,14 @@ const SettingsPage = () => {
 
     const trimmedAccount = {
       ...accountForm,
-      firstName: accountForm.firstName.trim(),
-      lastName: accountForm.lastName.trim(),
       username: accountForm.username.trim(),
       email: accountForm.email.trim(),
     };
 
-    if (!trimmedAccount.firstName || !trimmedAccount.lastName || !trimmedAccount.username || !trimmedAccount.email) {
+    if (!trimmedAccount.username || !trimmedAccount.email) {
       toast({
         title: "Unable to save account details",
-        description: "Please fill in all account fields.",
+        description: "Please fill in your username and email.",
         variant: "destructive",
       });
       return;
@@ -300,28 +298,6 @@ const SettingsPage = () => {
               </CardHeader>
               <CardContent>
                 <form className="space-y-5" onSubmit={handleSaveAccount}>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="settings-first-name">First Name</Label>
-                      <Input
-                        id="settings-first-name"
-                        value={accountForm.firstName}
-                        disabled={!isEditingAccount}
-                        onChange={(e) => handleAccountFieldChange("firstName", e.target.value)}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="settings-last-name">Last Name</Label>
-                      <Input
-                        id="settings-last-name"
-                        value={accountForm.lastName}
-                        disabled={!isEditingAccount}
-                        onChange={(e) => handleAccountFieldChange("lastName", e.target.value)}
-                      />
-                    </div>
-                  </div>
-
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="settings-username">Username</Label>
