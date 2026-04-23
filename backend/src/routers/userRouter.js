@@ -6,12 +6,12 @@ const sessionMiddleware = require('../middleware/sessionMiddleware');
 const router = express.Router();
 
 router.get('/', userController.getAllUsers);
+router.get('/is-logged-in', userController.isLoggedIn);
 router.get('/:id', userController.getUserById);
 
 router.post('/register', bcryptMiddleware.hashPassword, userController.createUser);
 router.post('/login', userController.loginUser, bcryptMiddleware.comparePassword, sessionMiddleware.generateSessionRedisUser);
 router.post('/logout', userController.logoutUser);
-
 
 router.put('/:id', userController.updateUser);
 
