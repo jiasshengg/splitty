@@ -56,6 +56,49 @@ export async function getSessionUser() {
   }
 }
 
+export async function getCurrentUserDetails() {
+  const sessionUser = await getSessionUser();
+
+  if (!sessionUser?.id) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(`${SESSION_BASE_URL}/${sessionUser.id}`, {
+      method: 'GET',
+      credentials: 'include',
+    });
+
+    const payload = await parseResponse(response);
+    return payload?.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function updateCurrentUserDetails({ username, email }) {
+  const sessionUser = await getSessionUser();
+
+  if (!sessionUser?.id) {
+    throw new Error('Not authenticated');
+  }
+
+  const response = await fetch(`${SESSION_BASE_URL}/${sessionUser.id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({
+      username,
+      email,
+    }),
+  });
+
+  const payload = await parseResponse(response);
+  return payload?.data ?? null;
+}
+
 export async function checkSession() {
   const user = await getSessionUser();
   return Boolean(user?.username);

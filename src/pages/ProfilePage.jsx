@@ -27,7 +27,7 @@ import {
 } from "@/lib/bills";
 import AppNavbar from "@/components/AppNavbar";
 import { getAccountDisplayName, getAccountInitials } from "@/lib/account";
-import { getSessionUser } from "@/lib/session";
+import { getCurrentUserDetails } from "@/lib/session";
 
 const ReceiptHistoryRow = ({ bill, onViewDetails, showSeparator = false }) => (
   <div>
@@ -139,8 +139,8 @@ const ProfilePage = () => {
   useEffect(() => {
     let isMounted = true;
 
-    const loadSessionUser = async () => {
-      const user = await getSessionUser();
+    const loadUserDetails = async () => {
+      const user = await getCurrentUserDetails();
 
       if (!isMounted) {
         return;
@@ -149,7 +149,7 @@ const ProfilePage = () => {
       setAccount(user);
     };
 
-    loadSessionUser();
+    loadUserDetails();
 
     return () => {
       isMounted = false;

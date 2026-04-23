@@ -8,7 +8,7 @@ export const getAccountInitials = (account = {}) => {
   const username = String(account?.username || "").trim();
 
   if (username) {
-    return username.slice(0, 2).toUpperCase();
+    return username.slice(0, 1).toUpperCase();
   }
 
   return "U";

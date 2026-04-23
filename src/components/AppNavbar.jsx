@@ -45,7 +45,7 @@ const AppNavbar = () => {
     await logoutSession();
     setIsAuthenticated(false);
     setIsMobileMenuOpen(false);
-    navigate('/login');
+    navigate('/');
   };
 
   const isActivePath = (path) => location.pathname === path;

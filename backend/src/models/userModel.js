@@ -8,6 +8,12 @@ module.exports.getAllUsers = async function getAllUsers() {
 module.exports.getUserById = async function getUserById(id) {
   return prisma.users.findUnique({
     where: { id: id },
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      created_at: true,
+    }
   });
 }
 
