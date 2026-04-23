@@ -1,21 +1,27 @@
 {
   "dependencies": {
-    "@prisma/adapter-pg": "^7.7.0",
-    "@prisma/client": "^7.7.0",
+    "@prisma/client": "^6.19.3",
+    "bcrypt": "^6.0.0",
+    "connect-redis": "^9.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.1",
     "express": "^5.2.1",
     "multer": "^2.1.1",
     "nodemon": "^3.1.14",
     "pg": "^8.20.0",
-    "prisma": "^7.7.0",
-    "tesseract.js": "^6.0.1"
+    "prisma": "^6.19.3",
+    "redis": "^5.11.0",
+    "tesseract.js": "^6.0.1",
+    "validator": "^13.15.35"
   },
   "scripts": {
     "dev": "nodemon server.js",
+    "dbpull": "dotenv -e .env -- npx prisma db pull",
+    "generate": "dotenv -e .env -- npx prisma generate",
     "start": "node server.js"
   },
   "devDependencies": {
-    "@types/node": "^25.6.0"
+    "@types/node": "^25.6.0",
+    "dotenv-cli": "^11.0.0"
   }
 }

@@ -1,17 +1,74 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
-model user {
-  id         Int       @id @default(autoincrement())
-  username   String    @db.VarChar(30)
-  email      String    @db.VarChar(50)
-  password   String    @db.VarChar(255)
-  created_at DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at DateTime? @db.Timestamptz(6)
+model bill_item_assignments {
+  id                Int               @id @default(autoincrement())
+  item_id           Int
+  participant_id    Int
+  bill_items        bill_items        @relation(fields: [item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  bill_participants bill_participants @relation(fields: [participant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([item_id, participant_id])
+}
+
+model bill_items {
+  id                    Int                     @id @default(autoincrement())
+  bill_id               Int
+  item_name             String                  @db.VarChar(30)
+  price                 Decimal                 @db.Decimal(10, 2)
+  bill_item_assignments bill_item_assignments[]
+  bills                 bills                   @relation(fields: [bill_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model bill_participants {
+  id                    Int                     @id @default(autoincrement())
+  bill_id               Int
+  name                  String                  @db.VarChar(255)
+  bill_item_assignments bill_item_assignments[]
+  bills                 bills                   @relation(fields: [bill_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model bills {
+  id                Int                 @id @default(autoincrement())
+  user_id           Int
+  bill_name         String              @db.VarChar(255)
+  total_amt         Decimal             @db.Decimal(10, 2)
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  bill_items        bill_items[]
+  bill_participants bill_participants[]
+  users             users               @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "constraint_1")
+}
+
+model user_settings {
+  id        Int     @id @default(autoincrement())
+  user_id   Int
+  dark_mode Boolean @default(false)
+  users     users   @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "constraint_1")
+}
+
+model users {
+  id            Int             @id @default(autoincrement())
+  username      String          @db.VarChar(30)
+  email         String          @unique @db.VarChar(50)
+  password      String          @db.VarChar(255)
+  first_name    String
+  last_name     String
+  created_at    DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime?       @db.Timestamptz(6)
+  role          Int
+  bills         bills[]
+  user_settings user_settings[]
+  user_role     user_role       @relation(fields: [role], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "constraint_1")
+}
+
+model user_role {
+  id    Int     @id @default(autoincrement())
+  role  String
+  users users[]
 }
