@@ -2,35 +2,43 @@ const express = require('express');
 const cors = require('cors');
 const scannerRouter = require('./routers/scannerRouter');
 const userRouter = require('./routers/userRouter');
+const sessionMiddleware = require('./middleware/sessionMiddleware');
 
-const app = express();
+async function createApp() {
+  const app = express();
+  const session = await sessionMiddleware.buildSessionMiddleware();
 
-app.use(
-  cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  })
-);
-app.use(express.json());
-app.use(express.static('public'));
+  app.use(
+    cors({
+      origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+      credentials: true,
+    })
+  );
+  app.use(express.json());
+  app.use(express.static('public'));
+  app.use(session);
 
-app.get('/health', function (req, res) {
-  res.json({ ok: true });
-});
-
-app.use('/api/scan', scannerRouter);
-app.use('/api/users', userRouter);
-
-app.use(function (req, res) {
-  res.status(404).json({
-    success: false,
-    message: `Unknown resource ${req.method} ${req.path}`,
+  app.get('/health', function (req, res) {
+    res.json({ ok: true });
   });
-});
 
-app.use(function (err, req, res, next) {
-  return res.status(err.status || 500).json({
-    error: err.message || 'Unknown Server Error!',
+  app.use('/api/scan', scannerRouter);
+  app.use('/api/users', userRouter);
+
+  app.use(function (req, res) {
+    res.status(404).json({
+      success: false,
+      message: `Unknown resource ${req.method} ${req.path}`,
+    });
   });
-});
 
-module.exports = app;
+  app.use(function (err, req, res, next) {
+    return res.status(err.status || 500).json({
+      error: err.message || 'Unknown Server Error!',
+    });
+  });
+
+  return app;
+}
+
+module.exports = createApp;

@@ -116,3 +116,76 @@ module.exports.deleteUser = async (req, res) => {
       return responseView.sendError(res, 'Failed to delete user', error);
   }
 };
+
+module.exports.loginUser = async (req, res, next) => {
+  try {
+
+    const userData = req.body;
+
+    const requiredFields = [
+      "username",
+      "password"
+    ];
+
+    for (const field of requiredFields) {
+      const value = userData[field];
+      if (!value || (typeof value === "string" && value.trim() === "")) {
+        const formattedFieldName =
+          field.charAt(0).toUpperCase() + field.slice(1);
+        return responseView.BadRequest(res, `${formattedFieldName} cannot be empty`);
+      }
+    }
+
+    const user = await userModel.loginUser(req.body.username);
+
+    res.locals.user = user;
+    next(); 
+
+  } catch (error) {
+    return responseView.sendError(res, "Failed to login", error); 
+  }
+}
+
+module.exports.isLoggedIn = (req, res) => {
+  try {
+    if (!req.session || !req.session.user) {
+      return responseView.sendSuccess(
+        res,
+        null,
+        'Not authenticated'
+      );
+    }
+
+    const { id, username, role } = req.session.user;
+
+    return responseView.sendSuccess(
+      res,
+      {
+        id,
+        username,
+        role,
+      },
+      'Authenticated'
+    );
+  } catch (error) {
+    console.error('isLoggedIn error:', error);
+    return responseView.sendError(res, 'Failed to verify session', error);
+  }
+};
+
+module.exports.logoutUser = (req, res) => {
+  if (!req.session) {
+    return responseView.sendSuccess(res, null, "Already logged out");
+  }
+
+  req.session.destroy((err) => {
+    if (err) {
+      console.error("Session destroy error:", err);
+      return responseView.sendError(res, "Failed to logout", err);
+    }
+
+    res.clearCookie("sessionId");
+
+    return responseView.sendSuccess(res, null, "Logged out successfully");
+  });
+};

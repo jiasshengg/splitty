@@ -71,3 +71,15 @@ module.exports.deleteUser = async function deleteUser(id) {
     where: { id: id },
   });
 };
+
+module.exports.loginUser = async function loginUser(username) {
+  return prisma.users.findFirst({
+    where: { username },
+    select: {
+      id: true,
+      username: true,
+      password: true,
+      role: true,
+    },
+  });
+};

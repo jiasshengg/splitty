@@ -5,8 +5,12 @@ const { response } = require("express");
 const saltRounds = 10;
 
 module.exports.comparePassword = (req, res, next) => {
-    const user = res.locals.user; 
-    
+    const user = res.locals.user;
+
+    if (!user) {
+        return responseView.Unauthorized(res, "Invalid username or password");
+    }
+
     bcrypt.compare(req.body.password, user.password, (err, isMatch) => {
         if (err) {
             return responseView.sendError(res, "Error comparing passwords", err);
@@ -31,4 +35,4 @@ module.exports.hashPassword = (req, res, next) => {
     };
   
     bcrypt.hash(req.body.password, saltRounds, callback);
-  };
+};
