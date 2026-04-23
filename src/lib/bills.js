@@ -14,7 +14,57 @@ import {
 
 const STORAGE_KEY = "splitpot_bills";
 
+export const RECEIPT_SPLIT_MODES = {
+  EQUALLY: "equally",
+  BY_ITEMS: "byItems",
+};
+
+export { DISCOUNT_TYPES };
+
 const hasLocalStorage = () => typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+
+const toNumber = (value) => {
+  const parsed = Number(value || 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const dedupeIds = (values = []) => {
+  const seen = new Set();
+
+  return values.filter((value) => {
+    const key = String(value);
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+};
+
+const normalizeMembers = (members = []) =>
+  (Array.isArray(members) ? members : []).map((member) => ({
+    ...member,
+    id: member?.id,
+    name: String(member?.name || "").trim(),
+  }));
+
+const normalizeSplitMode = (value) =>
+  value === RECEIPT_SPLIT_MODES.BY_ITEMS
+    ? RECEIPT_SPLIT_MODES.BY_ITEMS
+    : RECEIPT_SPLIT_MODES.EQUALLY;
+
+const hasValue = (value) =>
+  value !== undefined && value !== null && String(value).trim() !== "";
+
+const isLegacySampleBill = (bill) =>
+  String(bill?.id || "").startsWith("sample-");
+
+const sortBillsNewestFirst = (bills) =>
+  bills.sort(
+    (left, right) => new Date(right.createdAt) - new Date(left.createdAt)
+  );
 
 const createLegacyReceipt = (items = [], billId) => ({
   id: `${billId || "bill"}-receipt-1`,
@@ -507,51 +557,31 @@ export const calculateUnassignedTotal = (input = {}, membersOverride = []) =>
 
 export const getStoredBills = () => {
   if (!hasLocalStorage()) {
-    return sampleBills
-      .map(normaliseStoredBill)
-      .sort(
-        (left, right) => new Date(right.createdAt) - new Date(left.createdAt)
-      );
+    return [];
   }
 
   const raw = window.localStorage.getItem(STORAGE_KEY);
 
   if (!raw) {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(sampleBills));
-
-    return sampleBills
-      .map(normaliseStoredBill)
-      .sort(
-        (left, right) => new Date(right.createdAt) - new Date(left.createdAt)
-      );
+    return [];
   }
 
   try {
     const parsed = JSON.parse(raw);
 
     if (!Array.isArray(parsed) || parsed.length === 0) {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(sampleBills));
-
-      return sampleBills
-        .map(normaliseStoredBill)
-        .sort(
-          (left, right) => new Date(right.createdAt) - new Date(left.createdAt)
-        );
+      return [];
     }
 
-    return parsed
-      .map(normaliseStoredBill)
-      .sort(
-        (left, right) => new Date(right.createdAt) - new Date(left.createdAt)
-      );
-  } catch {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(sampleBills));
+    const nonSampleBills = parsed.filter((bill) => !isLegacySampleBill(bill));
 
-    return sampleBills
-      .map(normaliseStoredBill)
-      .sort(
-        (left, right) => new Date(right.createdAt) - new Date(left.createdAt)
-      );
+    if (nonSampleBills.length !== parsed.length) {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nonSampleBills));
+    }
+
+    return sortBillsNewestFirst(nonSampleBills.map(normaliseStoredBill));
+  } catch {
+    return [];
   }
 };
 
@@ -625,11 +655,7 @@ export const saveBillToHistory = ({
     })),
   };
 
-  const existingBills = getStoredBills().filter(
-    (bill) =>
-      !String(bill.id).startsWith("sample-") ||
-      sampleBills.some((sample) => sample.id === bill.id)
-  );
+  const existingBills = getStoredBills();
   const updatedBills = [newBill, ...existingBills];
   saveStoredBills(updatedBills);
 

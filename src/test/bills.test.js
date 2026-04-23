@@ -1,11 +1,54 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   calculateBillSummary,
   DISCOUNT_TYPES,
+  getStoredBills,
   RECEIPT_SPLIT_MODES,
 } from "@/lib/bills";
 
 const roundMoney = (value) => Number(value.toFixed(2));
+
+beforeEach(() => {
+  window.localStorage.clear();
+});
+
+describe("getStoredBills", () => {
+  it("returns an empty list when there is no stored history", () => {
+    expect(getStoredBills()).toEqual([]);
+    expect(window.localStorage.getItem("splitpot_bills")).toBeNull();
+  });
+
+  it("filters legacy sample bills out of stored history", () => {
+    window.localStorage.setItem(
+      "splitpot_bills",
+      JSON.stringify([
+        {
+          id: "sample-1",
+          billName: "Sample bill",
+          createdAt: "2026-03-28T12:00:00.000Z",
+          members: [],
+          receipts: [],
+        },
+        {
+          id: "real-1",
+          billName: "Real bill",
+          createdAt: "2026-04-24T12:00:00.000Z",
+          members: [],
+          receipts: [],
+        },
+      ])
+    );
+
+    const storedBills = getStoredBills();
+
+    expect(storedBills.map((bill) => bill.id)).toEqual(["real-1"]);
+    expect(
+      JSON.parse(window.localStorage.getItem("splitpot_bills") || "[]").map(
+        (bill) => bill.id
+      )
+    ).toEqual(["real-1"]);
+  });
+});
 
 describe("calculateBillSummary", () => {
   it("keeps receipt count at zero for an empty multi-receipt bill", () => {
