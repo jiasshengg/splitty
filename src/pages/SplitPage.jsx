@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ import {
 } from "@/lib/bills";
 import { DISCOUNT_TYPES } from "@/lib/receiptMath";
 import { scanReceiptImages } from "@/lib/receiptScanner";
+import { checkSession } from "@/lib/session";
 import AppNavbar from "@/components/AppNavbar";
 import ReceiptCard from "@/components/ReceiptCard";
 
@@ -50,7 +51,7 @@ const splitModeOptions = [
   },
   {
     value: RECEIPT_SPLIT_MODES.BY_ITEMS,
-    label: "Based on what they ate",
+    label: "Based on what was used",
   },
 ];
 
@@ -175,7 +176,28 @@ const SplitPage = () => {
   const [itemDrafts, setItemDrafts] = useState({});
   const [openReceiptIds, setOpenReceiptIds] = useState({});
   const [isScanningReceipts, setIsScanningReceipts] = useState(false);
+  const [isSignedIn, setIsSignedIn] = useState(false);
   const receiptImageInputRef = useRef(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadSessionState = async () => {
+      const signedIn = await checkSession();
+
+      if (!isMounted) {
+        return;
+      }
+
+      setIsSignedIn(signedIn);
+    };
+
+    loadSessionState();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const summary = useMemo(
     () =>
@@ -492,6 +514,11 @@ const SplitPage = () => {
   };
 
   const handleSaveBill = () => {
+    if (!isSignedIn) {
+      toast.error("You can only save bills after logging in.");
+      return;
+    }
+
     const trimmedBillName = billName.trim();
 
     if (!trimmedBillName) {
@@ -883,10 +910,12 @@ const SplitPage = () => {
 
                 <Separator />
 
-                <Button onClick={handleSaveBill} className="w-full gap-2">
-                  <Save className="h-4 w-4" />
-                  Save bill
-                </Button>
+                {isSignedIn ? (
+                  <Button onClick={handleSaveBill} className="w-full gap-2">
+                    <Save className="h-4 w-4" />
+                    Save bill
+                  </Button>
+                ) : null}
               </CardContent>
             </Card>
           </div>

@@ -58,7 +58,7 @@ function isCurrentSessionUser(req, id) {
 }
 
 function getPasswordResetUrl(token) {
-  const frontendBaseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const frontendBaseUrl = process.env.FRONTEND_URL || 'http://127.0.0.1:3000';
   return `${frontendBaseUrl}/reset-password?token=${token}`;
 }
 
