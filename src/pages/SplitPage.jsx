@@ -24,11 +24,7 @@ import {
   RECEIPT_SPLIT_MODES,
   saveBillToHistory,
 } from "@/lib/bills";
-import {
-  calculateItemsSubtotalCents,
-  clampDiscountValue,
-  DISCOUNT_TYPES,
-} from "@/lib/receiptMath";
+import { DISCOUNT_TYPES } from "@/lib/receiptMath";
 import { scanReceiptImages } from "@/lib/receiptScanner";
 import AppNavbar from "@/components/AppNavbar";
 import ReceiptCard from "@/components/ReceiptCard";
@@ -163,24 +159,13 @@ const sanitizePriceInput = (value) => {
 const getDraftForReceipt = (drafts, receiptId) =>
   drafts[receiptId] || { name: "", price: "" };
 
-const normalizeReceiptForState = (receipt) => {
-  const subtotalCents = calculateItemsSubtotalCents(receipt.items);
-  const discountType =
+const normalizeReceiptForState = (receipt) => ({
+  ...receipt,
+  discountType:
     receipt.discountType === DISCOUNT_TYPES.PERCENTAGE
       ? DISCOUNT_TYPES.PERCENTAGE
-      : DISCOUNT_TYPES.FIXED;
-
-  return {
-    ...receipt,
-    discountType,
-    discountValue:
-      receipt.discountValue === ""
-        ? ""
-        : String(
-            clampDiscountValue(discountType, receipt.discountValue, subtotalCents)
-          ),
-  };
-};
+      : DISCOUNT_TYPES.FIXED,
+});
 
 const SplitPage = () => {
   const [billName, setBillName] = useState("");
