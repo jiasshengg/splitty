@@ -22,10 +22,10 @@ import {
   calculateBillSummary,
   formatCurrency,
   RECEIPT_SPLIT_MODES,
-  saveBillToHistory,
 } from "@/lib/bills";
 import { DISCOUNT_TYPES } from "@/lib/receiptMath";
 import { scanReceiptImages } from "@/lib/receiptScanner";
+import { createBill } from "@/lib/billApi";
 import { checkSession } from "@/lib/session";
 import AppNavbar from "@/components/AppNavbar";
 import ReceiptCard from "@/components/ReceiptCard";
@@ -177,6 +177,7 @@ const SplitPage = () => {
   const [openReceiptIds, setOpenReceiptIds] = useState({});
   const [isScanningReceipts, setIsScanningReceipts] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
+  const [isSavingBill, setIsSavingBill] = useState(false);
   const receiptImageInputRef = useRef(null);
 
   useEffect(() => {
@@ -513,7 +514,7 @@ const SplitPage = () => {
     }
   };
 
-  const handleSaveBill = () => {
+  const handleSaveBill = async () => {
     if (!isSignedIn) {
       toast.error("You can only save bills after logging in.");
       return;
@@ -536,13 +537,22 @@ const SplitPage = () => {
       return;
     }
 
-    saveBillToHistory({
-      billName: trimmedBillName,
-      members,
-      receipts,
-    });
+    setIsSavingBill(true);
 
-    toast.success("Bill saved to your history.");
+    try {
+      await createBill({
+        billName: trimmedBillName,
+        members,
+        receipts,
+        summary,
+      });
+
+      toast.success("Bill saved to your history.");
+    } catch (error) {
+      toast.error(error.message || "Unable to save this bill right now.");
+    } finally {
+      setIsSavingBill(false);
+    }
   };
 
   return (
@@ -911,9 +921,9 @@ const SplitPage = () => {
                 <Separator />
 
                 {isSignedIn ? (
-                  <Button onClick={handleSaveBill} className="w-full gap-2">
+                  <Button onClick={handleSaveBill} className="w-full gap-2" disabled={isSavingBill}>
                     <Save className="h-4 w-4" />
-                    Save bill
+                    {isSavingBill ? "Saving..." : "Save bill"}
                   </Button>
                 ) : null}
               </CardContent>

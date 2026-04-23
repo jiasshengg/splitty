@@ -617,7 +617,6 @@ export const saveBillToHistory = ({
     total: summary.total,
     unassignedTotal: summary.unassignedTotal,
     peopleCount: normalizedMembers.length,
-    status: "Pending",
     members: normalizedMembers.map(({ id, name, color }) => ({
       id,
       name,

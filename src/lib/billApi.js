@@ -1,0 +1,49 @@
+const BILL_BASE_URL = '/api/bills/';
+
+const parseResponse = async (response) => {
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const errorMessage = payload?.message || payload?.error || 'Request failed.';
+    throw new Error(errorMessage);
+  }
+
+  return payload;
+};
+
+export async function createBill({ billName, members, receipts, summary }) {
+  const response = await fetch(BILL_BASE_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({
+      billName,
+      members,
+      receipts,
+      summary,
+    }),
+  });
+
+  const payload = await parseResponse(response);
+  return payload?.data ?? null;
+}
+
+export async function getBillHistory() {
+  try {
+    const response = await fetch(BILL_BASE_URL, {
+      method: 'GET',
+      credentials: 'include',
+    });
+
+    const payload = await parseResponse(response);
+    return Array.isArray(payload?.data) ? payload.data : [];
+  } catch (error) {
+    if (error.message === 'Please register or login') {
+      return [];
+    }
+
+    throw error;
+  }
+}
