@@ -4,6 +4,22 @@ const responseView = require('../views/responseView');
 const validator = require('validator');
 const bcrypt = require('bcrypt');
 
+function getUniqueConstraintMessage(error) {
+  const targets = Array.isArray(error?.meta?.target)
+    ? error.meta.target
+    : [error?.meta?.target].filter(Boolean);
+
+  if (targets.includes('username')) {
+    return 'Username already exists';
+  }
+
+  if (targets.includes('email')) {
+    return 'Email already exists';
+  }
+
+  return 'A user with those details already exists';
+}
+
 module.exports.getAllUsers = async (req, res) => {
   try {
       const users = await userModel.getAllUsers();
@@ -33,8 +49,6 @@ module.exports.createUser = async (req, res) => {
       "email",
       "username",
       "password",
-      "first_name",
-      "last_name",
     ];
 
     for (const field of requiredFields) {
@@ -68,6 +82,10 @@ module.exports.createUser = async (req, res) => {
     const createdUser = await userModel.createUser(userData);
     return responseView.confirmCreated(res, createdUser, "User created successfully");
   } catch (error) {
+    if (error.code === 'P2002') {
+      return responseView.Conflict(res, getUniqueConstraintMessage(error));
+    }
+
     console.error("Create user error:", error);
     return responseView.sendError(res, "Failed to create user", error);
   }
@@ -81,8 +99,6 @@ module.exports.updateUser = async (req, res) => {
     const requiredFields = [
       "email",
       "username",
-      "first_name",
-      "last_name",
     ];
 
     for (const field of requiredFields) {
@@ -97,6 +113,10 @@ module.exports.updateUser = async (req, res) => {
     const updatedUser = await userModel.updateUser(Number(id), userData);
     return responseView.sendSuccess(res, updatedUser, 'User updated successfully');
   } catch (error) {
+      if (error.code === 'P2002') {
+          return responseView.Conflict(res, getUniqueConstraintMessage(error));
+      }
+
       if (error.code === 'P2025') { // Prisma record not found
           return responseView.NotFound(res, 'User not found');
       }

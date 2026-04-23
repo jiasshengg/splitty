@@ -16,8 +16,6 @@ module.exports.createUser = async function createUser(userData) {
     username,
     email,
     password,
-    first_name,
-    last_name,
     role = 1,
   } = userData;
 
@@ -27,16 +25,12 @@ module.exports.createUser = async function createUser(userData) {
         username,
         email,
         password,
-        first_name,
-        last_name,
         role,
       },
       select: {
         id: true,
         username: true,
         email: true,
-        first_name: true,
-        last_name: true,
       },
     });
 
@@ -45,23 +39,19 @@ module.exports.createUser = async function createUser(userData) {
 };
 
 module.exports.updateUser = async function updateUser(id, userData) {
-  const { username, email, first_name, last_name } = userData;
+  const { username, email } = userData;
 
   return prisma.users.update({
     where: { id: id },
     data: {
       username,
       email,
-      first_name,
-      last_name,
       updated_at: new Date()
     },
     select: {
       id: true,
       username: true,
       email: true,
-      first_name: true,
-      last_name: true,
     },
   });
 };
@@ -73,7 +63,7 @@ module.exports.deleteUser = async function deleteUser(id) {
 };
 
 module.exports.loginUser = async function loginUser(username) {
-  return prisma.users.findFirst({
+  return prisma.users.findUnique({
     where: { username },
     select: {
       id: true,
