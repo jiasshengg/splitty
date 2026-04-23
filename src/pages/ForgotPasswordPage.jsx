@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -20,16 +20,6 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ForgotPasswordPage = () => {
   const messageRef = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [resetUrl, setResetUrl] = useState('');
-
-  const resetPath = useMemo(() => {
-    if (!resetUrl) {
-      return '';
-    }
-
-    const parsedResetUrl = new URL(resetUrl);
-    return `${parsedResetUrl.pathname}${parsedResetUrl.search}`;
-  }, [resetUrl]);
 
   const showMessage = (text, type = 'error') => {
     if (!messageRef.current) return;
@@ -44,7 +34,6 @@ const ForgotPasswordPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    setResetUrl('');
 
     const formData = new FormData(e.target);
     const email = formData.get('email')?.toString().trim();
@@ -62,14 +51,10 @@ const ForgotPasswordPage = () => {
     }
 
     try {
-      const data = await requestPasswordReset({ email });
-
-      if (data?.resetUrl) {
-        setResetUrl(data.resetUrl);
-      }
+      await requestPasswordReset({ email });
 
       showMessage(
-        'If an account exists for that email, a password reset link has been generated.',
+        'If an account exists for that email, a password reset link has been sent.',
         'success',
       );
       e.target.reset();
@@ -114,17 +99,6 @@ const ForgotPasswordPage = () => {
                 </div>
 
                 <p ref={messageRef} className="text-sm font-medium" />
-
-                {resetPath ? (
-                  <div className="rounded-xl border bg-muted/40 p-4 text-sm text-muted-foreground">
-                    Development reset link ready.
-                    <div className="mt-2">
-                      <Link to={resetPath} className="font-semibold text-primary hover:underline">
-                        Continue to reset password
-                      </Link>
-                    </div>
-                  </div>
-                ) : null}
 
                 <Button type="submit" className="w-full font-semibold" size="lg" disabled={isLoading}>
                   {isLoading ? 'Sending reset link...' : 'Send reset link'}

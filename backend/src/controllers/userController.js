@@ -3,6 +3,7 @@ const responseView = require('../views/responseView');
 const validator = require('validator');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
+const { sendPasswordResetEmail } = require('../utils/mailer');
 
 const passwordRules = {
   minLength: 8,
@@ -307,7 +308,7 @@ module.exports.forgotPassword = async (req, res) => {
 
     const user = await userModel.getUserByEmail(trimmedEmail);
     const successMessage =
-      'If an account exists for that email, a password reset link has been generated.';
+      'If an account exists for that email, a password reset link has been sent.';
 
     if (!user) {
       return responseView.sendSuccess(res, null, successMessage);
@@ -326,14 +327,15 @@ module.exports.forgotPassword = async (req, res) => {
       resetPasswordExpiresAt,
     );
 
-    const responseData =
-      process.env.NODE_ENV === 'production'
-        ? null
-        : {
-            resetUrl: getPasswordResetUrl(resetToken),
-          };
+    sendPasswordResetEmail({
+      to: user.email,
+      username: user.username,
+      resetUrl: getPasswordResetUrl(resetToken),
+    }).catch((mailError) => {
+      console.error('Password reset email error:', mailError);
+    });
 
-    return responseView.sendSuccess(res, responseData, successMessage);
+    return responseView.sendSuccess(res, null, successMessage);
   } catch (error) {
     return responseView.sendError(res, 'Failed to start password reset', error);
   }
