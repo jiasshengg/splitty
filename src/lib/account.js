@@ -51,6 +51,15 @@ export const saveStoredAccount = (account) => {
   return normalized;
 };
 
+export const syncSessionAccount = (sessionUser = {}) => {
+  const existingAccount = getStoredAccount();
+
+  return saveStoredAccount({
+    ...existingAccount,
+    username: sessionUser.username || existingAccount.username,
+  });
+};
+
 export const clearStoredAccount = () => {
   if (!hasLocalStorage()) {
     return;

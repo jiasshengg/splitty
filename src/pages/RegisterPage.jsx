@@ -1,5 +1,5 @@
-import { useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,9 +12,15 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import AppNavbar from '@/components/AppNavbar';
+import { registerSession } from '@/lib/session';
+
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
 const RegisterPage = () => {
+  const navigate = useNavigate();
   const messageRef = useRef(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const showMessage = (text, type = 'error') => {
     if (!messageRef.current) return;
@@ -26,31 +32,56 @@ const RegisterPage = () => {
         : 'text-sm font-medium text-green-600';
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
 
     const formData = new FormData(e.target);
 
-    const firstName = formData.get('firstName')?.toString().trim();
-    const lastName = formData.get('lastName')?.toString().trim();
     const username = formData.get('username')?.toString().trim();
     const email = formData.get('email')?.toString().trim();
     const password = formData.get('password')?.toString();
     const confirmPassword = formData.get('confirmPassword')?.toString();
 
-    if (!firstName || !lastName || !username || !email || !password || !confirmPassword) {
+    if (!username || !email || !password || !confirmPassword) {
       showMessage('Please fill in all fields.', 'error');
+      setIsLoading(false);
+      return;
+    }
+
+    if (!emailPattern.test(email)) {
+      showMessage('Please enter a valid email', 'error');
+      setIsLoading(false);
+      return;
+    }
+
+    if (!passwordPattern.test(password)) {
+      showMessage('Password requirements not met.', 'error');
+      setIsLoading(false);
       return;
     }
 
     if (password !== confirmPassword) {
       showMessage('Passwords do not match.', 'error');
+      setIsLoading(false);
       return;
     }
 
-    showMessage('Registration form submitted successfully.', 'success');
+    try {
+      await registerSession({
+        username,
+        email,
+        password,
+      });
 
-    e.target.reset();
+      showMessage('Account created successfully. Redirecting to login...', 'success');
+      e.target.reset();
+      navigate('/login');
+    } catch (error) {
+      showMessage(error.message || 'Unable to create account right now.', 'error');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -67,21 +98,9 @@ const RegisterPage = () => {
 
             <form onSubmit={handleSubmit}>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="firstName">First name</Label>
-                    <Input id="firstName" name="firstName" placeholder="John" required />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName">Last name</Label>
-                    <Input id="lastName" name="lastName" placeholder="Doe" required />
-                  </div>
-                </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="username">Username</Label>
-                  <Input id="username" name="username" placeholder="johndoe" required />
+                  <Input id="username" name="username" placeholder="johndoe" autoComplete="username" required />
                 </div>
 
                 <div className="space-y-2">
@@ -91,6 +110,7 @@ const RegisterPage = () => {
                     name="email"
                     type="email"
                     placeholder="you@example.com"
+                    autoComplete="email"
                     required
                   />
                 </div>
@@ -102,8 +122,12 @@ const RegisterPage = () => {
                     name="password"
                     type="password"
                     placeholder="••••••••"
+                    autoComplete="new-password"
                     required
                   />
+                  <p className="text-xs text-muted-foreground">
+                    At least 8 characters, with uppercase, lowercase, number, and symbol.
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -113,14 +137,15 @@ const RegisterPage = () => {
                     name="confirmPassword"
                     type="password"
                     placeholder="••••••••"
+                    autoComplete="new-password"
                     required
                   />
                 </div>
 
                 <p ref={messageRef} className="text-sm font-medium" />
 
-                <Button type="submit" className="w-full font-semibold" size="lg">
-                  Sign up
+                <Button type="submit" className="w-full font-semibold" size="lg" disabled={isLoading}>
+                  {isLoading ? 'Creating account...' : 'Sign up'}
                 </Button>
               </CardContent>
             </form>

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,8 +12,10 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import AppNavbar from '@/components/AppNavbar';
+import { loginSession } from '@/lib/session';
 
 const LoginPage = () => {
+  const navigate = useNavigate();
   const messageRef = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -33,22 +35,22 @@ const LoginPage = () => {
 
     const formData = new FormData(e.target);
 
-    const email = formData.get('email')?.toString().trim();
+    const username = formData.get('username')?.toString().trim();
     const password = formData.get('password')?.toString();
 
-    if (!email || !password) {
+    if (!username || !password) {
       showMessage('Please fill in all fields.', 'error');
       setIsLoading(false);
       return;
     }
 
     try {
-      // simulate delay
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
+      await loginSession({ username, password });
+      showMessage('Login successful. Redirecting...', 'success');
       e.target.reset();
+      navigate('/profile');
     } catch (error) {
-      showMessage('Something went wrong. Please try again.', 'error');
+      showMessage(error.message || 'Something went wrong. Please try again.', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -69,8 +71,8 @@ const LoginPage = () => {
             <form onSubmit={handleSubmit}>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" name="email" type="email" placeholder="you@example.com" required />
+                  <Label htmlFor="username">Username</Label>
+                  <Input id="username" name="username" placeholder="johndoe" autoComplete="username" required />
                 </div>
 
                 <div className="space-y-2">
@@ -85,6 +87,7 @@ const LoginPage = () => {
                     name="password"
                     type="password"
                     placeholder="••••••••"
+                    autoComplete="current-password"
                     required
                   />
                 </div>
