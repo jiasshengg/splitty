@@ -150,8 +150,9 @@ const ReceiptDetails = ({ bill }) => {
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground sm:text-right">
                   <span>Subtotal {formatCurrency(receipt.subtotal)}</span>
-                  <span>GST {formatCurrency(receipt.gst)}</span>
-                  <span>Service {formatCurrency(receipt.serviceCharge)}</span>
+                  <span>GST % {Number(receipt.gstRate || 0).toFixed(2)}</span>
+                  <span>GST {formatCurrency(receipt.gstAmount)}</span>
+                  <span>Service {formatCurrency(receipt.serviceChargeAmount)}</span>
                   <span>Total {formatCurrency(receipt.total)}</span>
                 </div>
               </div>
