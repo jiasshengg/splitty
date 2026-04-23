@@ -177,15 +177,20 @@ const normalizeBillInput = (input = {}, membersOverride = []) => {
   if (Array.isArray(input)) {
     return {
       members: normalizeMembers(membersOverride),
-      receipts: [normalizeReceipt(createLegacyReceipt(input), 0)],
+      receipts:
+        input.length > 0 ? [normalizeReceipt(createLegacyReceipt(input), 0)] : [],
     };
   }
 
   const members = normalizeMembers(input?.members ?? membersOverride);
+  const hasExplicitReceipts = Array.isArray(input?.receipts);
+  const legacyItems = Array.isArray(input?.items) ? input.items : [];
   const sourceReceipts =
-    Array.isArray(input?.receipts) && input.receipts.length > 0
+    hasExplicitReceipts
       ? input.receipts
-      : [createLegacyReceipt(input?.items, input?.id)];
+      : legacyItems.length > 0
+        ? [createLegacyReceipt(legacyItems, input?.id)]
+        : [];
 
   return {
     members,

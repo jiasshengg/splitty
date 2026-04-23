@@ -511,7 +511,7 @@ const SplitPage = () => {
                       setBillName(limitTextLength(event.target.value))
                     }
                     maxLength={maxInputLength}
-                    placeholder="e.g. Seoul Garden"
+                    placeholder="e.g. Bangkok Trip"
                   />
                 </div>
               </CardContent>
@@ -623,7 +623,7 @@ const SplitPage = () => {
                       disabled={isScanningReceipts}
                     >
                       <Trash2 className="h-4 w-4" />
-                      Clear all
+                      Clear All
                     </Button>
                   </div>
                 </div>

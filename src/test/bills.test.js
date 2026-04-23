@@ -4,6 +4,17 @@ import { calculateBillSummary, RECEIPT_SPLIT_MODES } from "@/lib/bills";
 const roundMoney = (value) => Number(value.toFixed(2));
 
 describe("calculateBillSummary", () => {
+  it("keeps receipt count at zero for an empty multi-receipt bill", () => {
+    const summary = calculateBillSummary({
+      members: [],
+      receipts: [],
+    });
+
+    expect(summary.receiptCount).toBe(0);
+    expect(summary.itemCount).toBe(0);
+    expect(summary.total).toBe(0);
+  });
+
   it("allocates receipt charges per receipt and reconciles to the bill total", () => {
     const members = [
       { id: "a", name: "Alex" },
