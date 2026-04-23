@@ -26,7 +26,13 @@ import {
   getAccountDisplayName,
 } from "@/lib/account";
 import AppNavbar from "@/components/AppNavbar";
-import { getCurrentUserDetails, updateCurrentUserDetails } from "@/lib/session";
+import {
+  getCurrentUserDetails,
+  updateCurrentUserDetails,
+  updateCurrentUserPassword,
+} from "@/lib/session";
+
+const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
 const SettingsPage = () => {
   const { isDark, toggleTheme } = useTheme();
@@ -42,6 +48,7 @@ const SettingsPage = () => {
     newPassword: "",
     confirmPassword: "",
   });
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -145,7 +152,7 @@ const SettingsPage = () => {
     setIsEditingAccount(false);
   };
 
-  const handleChangePassword = (e) => {
+  const handleChangePassword = async (e) => {
     e.preventDefault();
 
     const { currentPassword, newPassword, confirmPassword } = passwordForm;
@@ -159,10 +166,19 @@ const SettingsPage = () => {
       return;
     }
 
-    if (newPassword.length < 8) {
+    if (!passwordPattern.test(newPassword)) {
       toast({
-        title: "Password too short",
-        description: "Your new password should be at least 8 characters long.",
+        title: "Unable to change password",
+        description: "Password requirements not met.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (currentPassword === newPassword) {
+      toast({
+        title: "Unable to change password",
+        description: "Your new password must be different from your current password.",
         variant: "destructive",
       });
       return;
@@ -177,16 +193,33 @@ const SettingsPage = () => {
       return;
     }
 
-    setPasswordForm({
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: "",
-    });
+    setIsSavingPassword(true);
 
-    toast({
-      title: "Password updated",
-      description: "Your password has been changed successfully.",
-    });
+    try {
+      await updateCurrentUserPassword({
+        currentPassword,
+        newPassword,
+      });
+
+      setPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+
+      toast({
+        title: "Password updated",
+        description: "Your password has been changed successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Unable to change password",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingPassword(false);
+    }
   };
 
   return (
@@ -382,6 +415,7 @@ const SettingsPage = () => {
                       id="settings-current-password"
                       type="password"
                       value={passwordForm.currentPassword}
+                      disabled={isSavingPassword}
                       onChange={(e) => handlePasswordFieldChange("currentPassword", e.target.value)}
                       placeholder="Enter your current password"
                     />
@@ -394,6 +428,7 @@ const SettingsPage = () => {
                         id="settings-new-password"
                         type="password"
                         value={passwordForm.newPassword}
+                        disabled={isSavingPassword}
                         onChange={(e) => handlePasswordFieldChange("newPassword", e.target.value)}
                         placeholder="At least 8 characters"
                       />
@@ -405,6 +440,7 @@ const SettingsPage = () => {
                         id="settings-confirm-password"
                         type="password"
                         value={passwordForm.confirmPassword}
+                        disabled={isSavingPassword}
                         onChange={(e) => handlePasswordFieldChange("confirmPassword", e.target.value)}
                         placeholder="Re-enter your new password"
                       />
@@ -421,8 +457,8 @@ const SettingsPage = () => {
                   </div>
 
                   <div className="flex justify-end">
-                    <Button type="submit" className="w-full sm:w-auto">
-                      Change Password
+                    <Button type="submit" className="w-full sm:w-auto" disabled={isSavingPassword}>
+                      {isSavingPassword ? "Updating..." : "Change Password"}
                     </Button>
                   </div>
                 </form>

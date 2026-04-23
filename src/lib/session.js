@@ -99,6 +99,60 @@ export async function updateCurrentUserDetails({ username, email }) {
   return payload?.data ?? null;
 }
 
+export async function updateCurrentUserPassword({ currentPassword, newPassword }) {
+  const sessionUser = await getSessionUser();
+
+  if (!sessionUser?.id) {
+    throw new Error('Not authenticated');
+  }
+
+  const response = await fetch(`${SESSION_BASE_URL}/${sessionUser.id}/password`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({
+      currentPassword,
+      newPassword,
+    }),
+  });
+
+  const payload = await parseResponse(response);
+  return payload?.data ?? null;
+}
+
+export async function requestPasswordReset({ email }) {
+  const response = await fetch(`${SESSION_BASE_URL}/forgot-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      email,
+    }),
+  });
+
+  const payload = await parseResponse(response);
+  return payload?.data ?? null;
+}
+
+export async function resetPassword({ token, password }) {
+  const response = await fetch(`${SESSION_BASE_URL}/reset-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      token,
+      password,
+    }),
+  });
+
+  const payload = await parseResponse(response);
+  return payload?.data ?? null;
+}
+
 export async function checkSession() {
   const user = await getSessionUser();
   return Boolean(user?.username);

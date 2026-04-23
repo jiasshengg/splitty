@@ -1,8 +1,17 @@
 const userModel = require('../models/userModel');
-const sessionMiddleware = require('../middleware/sessionMiddleware');
 const responseView = require('../views/responseView');
 const validator = require('validator');
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
+
+const passwordRules = {
+  minLength: 8,
+  minLowercase: 1,
+  minUppercase: 1,
+  minNumbers: 1,
+  minSymbols: 1,
+};
+const resetPasswordWindowMs = 1000 * 60 * 15;
 
 function getUniqueConstraintMessage(error) {
   const targets = Array.isArray(error?.meta?.target)
@@ -18,6 +27,38 @@ function getUniqueConstraintMessage(error) {
   }
 
   return 'A user with those details already exists';
+}
+
+function hasBlankString(value) {
+  return !value || (typeof value === 'string' && value.trim() === '');
+}
+
+function validateRequiredFields(res, data, requiredFields) {
+  for (const field of requiredFields) {
+    const value = data[field];
+
+    if (hasBlankString(value)) {
+      const formattedFieldName =
+        field.charAt(0).toUpperCase() + field.slice(1);
+      responseView.BadRequest(res, `${formattedFieldName} cannot be empty`);
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function isStrongPassword(password) {
+  return validator.isStrongPassword(password, passwordRules);
+}
+
+function isCurrentSessionUser(req, id) {
+  return req.session?.user?.id === Number(id);
+}
+
+function getPasswordResetUrl(token) {
+  const frontendBaseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  return `${frontendBaseUrl}/reset-password?token=${token}`;
 }
 
 module.exports.getAllUsers = async (req, res) => {
@@ -51,26 +92,18 @@ module.exports.createUser = async (req, res) => {
       "password",
     ];
 
-    for (const field of requiredFields) {
-      const value = userData[field];
-      if (!value || (typeof value === "string" && value.trim() === "")) {
-        const formattedFieldName =
-          field.charAt(0).toUpperCase() + field.slice(1);
-        return responseView.BadRequest(res, `${formattedFieldName} cannot be empty`);
-      }
+    if (!validateRequiredFields(res, userData, requiredFields)) {
+      return;
     }
+
+    userData.email = userData.email.trim();
+    userData.username = userData.username.trim();
 
     if (!validator.isEmail(userData.email)) {
       return responseView.BadRequest(res, "Please enter a valid email");
     }
 
-    if (!validator.isStrongPassword(userData.password, {
-      minLength: 8,
-      minLowercase: 1,
-      minUppercase: 1,
-      minNumbers: 1,
-      minSymbols: 1
-    })) {
+    if (!isStrongPassword(userData.password)) {
       return responseView.BadRequest(res, "Password requirements not met.");
     }
 
@@ -96,18 +129,24 @@ module.exports.updateUser = async (req, res) => {
     const { id } = req.params;
     const userData = req.body;
 
+    if (!isCurrentSessionUser(req, id)) {
+      return responseView.Forbidden(res, 'You can only update your own account');
+    }
+
     const requiredFields = [
       "email",
       "username",
     ];
 
-    for (const field of requiredFields) {
-      const value = userData[field];
-      if (!value || (typeof value === "string" && value.trim() === "")) {
-        const formattedFieldName =
-          field.charAt(0).toUpperCase() + field.slice(1);
-        return responseView.BadRequest(res, `${formattedFieldName} cannot be empty`);
-      }
+    if (!validateRequiredFields(res, userData, requiredFields)) {
+      return;
+    }
+
+    userData.email = userData.email.trim();
+    userData.username = userData.username.trim();
+
+    if (!validator.isEmail(userData.email)) {
+      return responseView.BadRequest(res, "Please enter a valid email");
     }
 
     const updatedUser = await userModel.updateUser(Number(id), userData);
@@ -147,16 +186,13 @@ module.exports.loginUser = async (req, res, next) => {
       "password"
     ];
 
-    for (const field of requiredFields) {
-      const value = userData[field];
-      if (!value || (typeof value === "string" && value.trim() === "")) {
-        const formattedFieldName =
-          field.charAt(0).toUpperCase() + field.slice(1);
-        return responseView.BadRequest(res, `${formattedFieldName} cannot be empty`);
-      }
+    if (!validateRequiredFields(res, userData, requiredFields)) {
+      return;
     }
 
-    const user = await userModel.loginUser(req.body.username);
+    userData.username = userData.username.trim();
+
+    const user = await userModel.loginUser(userData.username);
 
     res.locals.user = user;
     next(); 
@@ -208,4 +244,135 @@ module.exports.logoutUser = (req, res) => {
 
     return responseView.sendSuccess(res, null, "Logged out successfully");
   });
+};
+
+module.exports.updatePassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userData = req.body;
+
+    if (!isCurrentSessionUser(req, id)) {
+      return responseView.Forbidden(res, 'You can only update your own password');
+    }
+
+    const requiredFields = [
+      'currentPassword',
+      'newPassword',
+    ];
+
+    if (!validateRequiredFields(res, userData, requiredFields)) {
+      return;
+    }
+
+    if (userData.currentPassword === userData.newPassword) {
+      return responseView.BadRequest(res, 'Your new password must be different from your current password');
+    }
+
+    if (!isStrongPassword(userData.newPassword)) {
+      return responseView.BadRequest(res, 'Password requirements not met.');
+    }
+
+    const user = await userModel.getUserPasswordById(Number(id));
+
+    if (!user) {
+      return responseView.NotFound(res, 'User not found');
+    }
+
+    const isMatch = await bcrypt.compare(userData.currentPassword, user.password);
+
+    if (!isMatch) {
+      return responseView.Unauthorized(res, 'Current password is incorrect');
+    }
+
+    await userModel.updateUserPassword(Number(id), res.locals.hash);
+
+    return responseView.sendSuccess(res, null, 'Password updated successfully');
+  } catch (error) {
+    return responseView.sendError(res, 'Failed to update password', error);
+  }
+};
+
+module.exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const trimmedEmail = typeof email === 'string' ? email.trim() : email;
+
+    if (hasBlankString(trimmedEmail)) {
+      return responseView.BadRequest(res, 'Email cannot be empty');
+    }
+
+    if (!validator.isEmail(trimmedEmail)) {
+      return responseView.BadRequest(res, 'Please enter a valid email');
+    }
+
+    const user = await userModel.getUserByEmail(trimmedEmail);
+    const successMessage =
+      'If an account exists for that email, a password reset link has been generated.';
+
+    if (!user) {
+      return responseView.sendSuccess(res, null, successMessage);
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const hashedResetToken = crypto
+      .createHash('sha256')
+      .update(resetToken)
+      .digest('hex');
+    const resetPasswordExpiresAt = new Date(Date.now() + resetPasswordWindowMs);
+
+    await userModel.storePasswordResetToken(
+      user.id,
+      hashedResetToken,
+      resetPasswordExpiresAt,
+    );
+
+    const responseData =
+      process.env.NODE_ENV === 'production'
+        ? null
+        : {
+            resetUrl: getPasswordResetUrl(resetToken),
+          };
+
+    return responseView.sendSuccess(res, responseData, successMessage);
+  } catch (error) {
+    return responseView.sendError(res, 'Failed to start password reset', error);
+  }
+};
+
+module.exports.resetPassword = async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    const requiredFields = [
+      'token',
+      'password',
+    ];
+
+    if (!validateRequiredFields(res, req.body, requiredFields)) {
+      return;
+    }
+
+    if (!isStrongPassword(password)) {
+      return responseView.BadRequest(res, 'Password requirements not met.');
+    }
+
+    const hashedResetToken = crypto
+      .createHash('sha256')
+      .update(token)
+      .digest('hex');
+    const user = await userModel.getUserByPasswordResetToken(hashedResetToken);
+
+    if (!user) {
+      return responseView.BadRequest(
+        res,
+        'This password reset link is invalid or has expired',
+      );
+    }
+
+    await userModel.updateUserPassword(user.id, res.locals.hash);
+
+    return responseView.sendSuccess(res, null, 'Password reset successfully');
+  } catch (error) {
+    return responseView.sendError(res, 'Failed to reset password', error);
+  }
 };
