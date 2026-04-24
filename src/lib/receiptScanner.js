@@ -1,3 +1,19 @@
+import { getApiUrl } from '@/lib/api';
+
+const RECEIPT_SCANNER_URL = getApiUrl('/api/scan/receipt');
+
+const parseResponse = async (response) => {
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(
+      payload?.message || payload?.error || 'Unable to scan receipt images right now.'
+    );
+  }
+
+  return payload;
+};
+
 export const scanReceiptImages = async (files = []) => {
   if (!Array.isArray(files) || files.length === 0) {
     return {
@@ -13,16 +29,13 @@ export const scanReceiptImages = async (files = []) => {
     formData.append('images', file);
   });
 
-  const response = await fetch('/api/scan/receipt', {
+  const response = await fetch(RECEIPT_SCANNER_URL, {
     method: 'POST',
+    credentials: 'include',
     body: formData,
   });
 
-  const payload = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    throw new Error(payload?.error || 'Unable to scan receipt images right now.');
-  }
+  const payload = await parseResponse(response);
 
   const receipts = Array.isArray(payload?.receipts)
     ? payload.receipts

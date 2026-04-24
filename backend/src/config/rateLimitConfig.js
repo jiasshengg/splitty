@@ -1,4 +1,5 @@
 const responseView = require('../views/responseView');
+const isProd = (process.env.NODE_ENV || 'development') === 'production';
 
 function normalizePositiveInteger(value, fallbackValue) {
   const parsedValue = Number(value);
@@ -83,7 +84,7 @@ const resetPasswordRateLimiter = createRateLimiter({
 const scanRateLimiter = createRateLimiter({
   keyPrefix: 'receipt-scan',
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: isProd ? 10 : 100,
   message: 'Too many receipt scans. Please try again later.',
 });
 
