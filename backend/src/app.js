@@ -8,6 +8,7 @@ const sessionMiddleware = require('./middleware/sessionMiddleware');
 async function createApp() {
   const app = express();
   const session = await sessionMiddleware.buildSessionMiddleware();
+  const allowedOrigin = process.env.FRONTEND_URL || 'http://127.0.0.1:3000';
 
   if (process.env.NODE_ENV === 'production') {
     app.set('trust proxy', 1);
@@ -15,7 +16,7 @@ async function createApp() {
 
   app.use(
     cors({
-      origin: 'http://127.0.0.1:3000',
+      origin: allowedOrigin,
       credentials: true,
     })
   );

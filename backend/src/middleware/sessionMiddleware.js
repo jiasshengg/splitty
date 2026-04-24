@@ -15,6 +15,9 @@ function getRedisClient() {
 
 async function buildSessionMiddleware() {
 
+  console.log('NODE_ENV:', process.env.NODE_ENV);
+  console.log('REDIS_URL exists:', Boolean(process.env.REDIS_URL));
+
   const sessionSecret = process.env.SESSION_SECRET?.trim() || '';
 
   let store;
