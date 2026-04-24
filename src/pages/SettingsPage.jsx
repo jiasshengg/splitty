@@ -26,6 +26,7 @@ import {
   getAccountDisplayName,
 } from "@/lib/account";
 import AppNavbar from "@/components/AppNavbar";
+import { useAuth } from "@/context/AuthContext";
 import {
   getCurrentUserDetails,
   updateCurrentUserDetails,
@@ -35,6 +36,7 @@ import {
 const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
 const SettingsPage = () => {
+  const { isLoading: isAuthLoading } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const [account, setAccount] = useState(null);
   const [accountForm, setAccountForm] = useState({
@@ -49,22 +51,31 @@ const SettingsPage = () => {
     confirmPassword: "",
   });
   const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [isAccountLoading, setIsAccountLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
 
     const loadUserDetails = async () => {
-      const user = await getCurrentUserDetails();
+      try {
+        const user = await getCurrentUserDetails();
 
-      if (!isMounted) {
-        return;
+        if (!isMounted) {
+          return;
+        }
+
+        setAccount(user);
+        setAccountForm({
+          username: user?.username || "",
+          email: user?.email || "",
+        });
+      } finally {
+        if (!isMounted) {
+          return;
+        }
+
+        setIsAccountLoading(false);
       }
-
-      setAccount(user);
-      setAccountForm({
-        username: user?.username || "",
-        email: user?.email || "",
-      });
     };
 
     loadUserDetails();
@@ -222,6 +233,8 @@ const SettingsPage = () => {
     }
   };
 
+  const isPageLoading = isAuthLoading || isAccountLoading;
+
   return (
     <div className="min-h-screen bg-background">
       <AppNavbar />
@@ -346,7 +359,7 @@ const SettingsPage = () => {
                       <Input
                         id="settings-username"
                         value={accountForm.username}
-                        disabled={!isEditingAccount || isSavingAccount}
+                        disabled={isPageLoading || !isEditingAccount || isSavingAccount}
                         onChange={(e) => handleAccountFieldChange("username", e.target.value)}
                       />
                     </div>
@@ -357,7 +370,7 @@ const SettingsPage = () => {
                         id="settings-email"
                         type="email"
                         value={accountForm.email}
-                        disabled={!isEditingAccount || isSavingAccount}
+                        disabled={isPageLoading || !isEditingAccount || isSavingAccount}
                         onChange={(e) => handleAccountFieldChange("email", e.target.value)}
                       />
                     </div>
@@ -369,12 +382,14 @@ const SettingsPage = () => {
                       <div>
                         <span className="block text-xs uppercase tracking-wide">Display Name</span>
                         <span className="font-medium text-foreground">
-                          {getAccountDisplayName(account) || "Unavailable"}
+                          {isPageLoading ? "Loading..." : getAccountDisplayName(account) || "Unavailable"}
                         </span>
                       </div>
                       <div>
                         <span className="block text-xs uppercase tracking-wide">Joined</span>
-                        <span className="font-medium text-foreground">{formatJoinedDate(account?.created_at)}</span>
+                        <span className="font-medium text-foreground">
+                          {isPageLoading ? "Loading..." : formatJoinedDate(account?.created_at)}
+                        </span>
                       </div>
                     </div>
                   </div>

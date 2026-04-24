@@ -12,12 +12,14 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import AppNavbar from '@/components/AppNavbar';
+import { useAuth } from '@/context/AuthContext';
 import { loginSession } from '@/lib/session';
 
 const LoginPage = () => {
   const navigate = useNavigate();
   const messageRef = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
+  const { markLoggedIn } = useAuth();
 
   const showMessage = (text, type = 'error') => {
     if (!messageRef.current) return;
@@ -46,6 +48,7 @@ const LoginPage = () => {
 
     try {
       await loginSession({ username, password });
+      markLoggedIn();
       showMessage('Login successful. Redirecting...', 'success');
       e.target.reset();
       navigate('/profile');

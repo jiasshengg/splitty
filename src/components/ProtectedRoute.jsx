@@ -1,31 +1,10 @@
-import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { checkSession } from '@/lib/session';
+import { useAuth } from '@/context/AuthContext';
 
 const ProtectedRoute = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(null);
+  const { isAuthenticated, isLoading } = useAuth();
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const validateSession = async () => {
-      const isLoggedIn = await checkSession();
-
-      if (!isMounted) {
-        return;
-      }
-
-      setIsAuthenticated(isLoggedIn);
-    };
-
-    validateSession();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  if (isAuthenticated === null) {
+  if (isLoading) {
     return <div className="min-h-screen bg-background" />;
   }
 
