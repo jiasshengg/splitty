@@ -18,22 +18,43 @@ const ignoredLinePatterns = [
 const cleanName = (name = '') =>
   name
     .replace(/^[^a-zA-Z0-9]+/, '')
+    .replace(/^\d+\s*(x|pcs?|qty)?\s+/i, '')
     .replace(/\s+/g, ' ')
     .trim();
 
+const normalizePriceToken = (value = '') =>
+  value
+    .replace(/[Oo]/g, '0')
+    .replace(/[Ss]/g, '5')
+    .replace(/[Il]/g, '1')
+    .replace(/[,]/g, '')
+    .replace(/[:;]/g, '.')
+    .replace(/\s+/g, '.')
+    .trim();
+
 const parsePrice = (value = '') => {
-  const normalized = value.replace(/,/g, '').trim();
+  const normalized = normalizePriceToken(value);
   const parsed = Number.parseFloat(normalized);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 };
 
 const looksIgnored = (name = '') => {
   const normalized = name.trim().toLowerCase();
-  return ignoredLinePatterns.some((pattern) => pattern.test(normalized));
+  return (
+    ignoredLinePatterns.some((pattern) => pattern.test(normalized)) ||
+    /(subtotal|grand total|total|cash|change|tax|gst|service charge|discount|rounding)/i.test(
+      normalized
+    )
+  );
 };
 
 const findLinePrice = (line = '') => {
-  const matches = [...line.matchAll(/(\d+[.,]\d{2})/g)];
+  const matches = [
+    ...line.matchAll(
+      /((?:\d[\dOolIsS,]*[.,:;]\d{2})|(?:\d[\dOolIsS,]*\s\d{2}))(?!.*(?:\d[\dOolIsS,]*[.,:;]\d{2}|\d[\dOolIsS,]*\s\d{2}))/g
+    ),
+  ];
+
   if (matches.length === 0) {
     return null;
   }
@@ -62,7 +83,12 @@ module.exports.parseReceiptTextToItems = function (text = '') {
       continue;
     }
 
-    const name = cleanName(line.replace(priceToken, ''));
+    const name = cleanName(
+      line
+        .replace(priceToken, '')
+        .replace(/\b\d+\s*@\s*$/i, '')
+        .replace(/\s{2,}/g, ' ')
+    );
     if (!name || name.length < 2 || looksIgnored(name)) {
       continue;
     }

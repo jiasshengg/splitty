@@ -1,4 +1,6 @@
-const SESSION_BASE_URL = '/api/users';
+import { getApiUrl } from '@/lib/api';
+
+const SESSION_BASE_URL = getApiUrl('/api/users');
 
 const parseResponse = async (response) => {
   const payload = await response.json().catch(() => null);
