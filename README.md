@@ -8,4 +8,4 @@ The app also allows users to save bills and review them later through the receip
 
 Overall, the purpose of the web app is to make splitting group expenses easier, more accurate, and more organised.
 
-[Splitty](https://splitty-es2q.onrender.com)
+[Try Splitty](https://splitty-es2q.onrender.com)
