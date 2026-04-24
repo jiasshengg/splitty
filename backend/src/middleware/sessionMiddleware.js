@@ -2,7 +2,6 @@ const session = require('express-session');
 const redis = require('redis');
 const { RedisStore } = require('connect-redis');
 const responseView = require('../views/responseView');
-const { response } = require('express');
 
 const nodeEnv = process.env.NODE_ENV || 'development';
 const isProd = nodeEnv === 'production';
@@ -10,19 +9,14 @@ const isHttps = isProd;
 
 let redisClient;
 
-/**
- * build session middleware after redis is ready
- */
-
 function getRedisClient() {
   return redisClient;
 }
 
 async function buildSessionMiddleware() {
-  const sessionSecret =
-    typeof process.env.SESSION_SECRET === 'string'
-      ? process.env.SESSION_SECRET.trim()
-      : '';
+
+  const sessionSecret = process.env.SESSION_SECRET?.trim() || '';
+
   let store;
 
   if (!sessionSecret) {
@@ -30,9 +24,8 @@ async function buildSessionMiddleware() {
   }
 
   try {
-    if (isProd && process.env.REDIS_URL) {
-      // ================= prod (upstash) =================
-      console.log('Production mode - connecting to Upstash Redis...');
+    if (process.env.REDIS_URL) {
+      console.log('Connecting to Redis using REDIS_URL...');
 
       redisClient = redis.createClient({
         url: process.env.REDIS_URL,
@@ -41,10 +34,7 @@ async function buildSessionMiddleware() {
         },
       });
     } else {
-      // ================= dev (local redis) =================
-      console.log(
-        'Development mode - connecting to local Redis @ 127.0.0.1:6379',
-      );
+      console.log('Development mode - connecting to local Redis @ 127.0.0.1:6379');
 
       redisClient = redis.createClient({
         socket: {
@@ -63,11 +53,8 @@ async function buildSessionMiddleware() {
 
     store = new RedisStore({ client: redisClient });
   } catch (err) {
-    console.error(
-      'Redis initialization failed. Falling back to MemoryStore:',
-      err,
-    );
-    store = new session.MemoryStore();
+    console.error('Redis initialization failed:', err);
+    throw err;
   }
 
   return session({
