@@ -1,32 +1,11 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Receipt, Users, Calculator, ChevronRight, Flame } from 'lucide-react';
 import AppNavbar from '@/components/AppNavbar';
-import { checkSession } from '@/lib/session';
+import { useAuth } from '@/context/AuthContext';
 
 const LandingPage = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadSession = async () => {
-      const isLoggedIn = await checkSession();
-
-      if (!isMounted) {
-        return;
-      }
-
-      setIsAuthenticated(isLoggedIn);
-    };
-
-    loadSession();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const { isAuthenticated, isLoading } = useAuth();
 
   return (
     <div className="min-h-screen bg-background">
@@ -46,7 +25,7 @@ const LandingPage = () => {
             Perfect for any shared bill.
           </p>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            {!isAuthenticated ? (
+            {!isLoading && !isAuthenticated ? (
               <Link to="/register">
                 <Button size="lg" className="gap-2 px-8 text-base font-semibold">
                   Get started free

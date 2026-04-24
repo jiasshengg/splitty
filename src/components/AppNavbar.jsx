@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Flame, Menu, User, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { checkSession, logoutSession } from '@/lib/session';
+import { useAuth } from '@/context/AuthContext';
+import { logoutSession } from '@/lib/session';
 import { cn } from '@/lib/utils';
 
 const navButtonClassName =
@@ -14,28 +15,8 @@ const mobileMenuButtonClassName =
 const AppNavbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { isAuthenticated, isLoading, markLoggedOut } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadSession = async () => {
-      const isLoggedIn = await checkSession();
-
-      if (!isMounted) {
-        return;
-      }
-
-      setIsAuthenticated(isLoggedIn);
-    };
-
-    loadSession();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [location.pathname]);
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
@@ -43,7 +24,7 @@ const AppNavbar = () => {
 
   const handleLogout = async () => {
     await logoutSession();
-    setIsAuthenticated(false);
+    markLoggedOut();
     setIsMobileMenuOpen(false);
     navigate('/');
   };
@@ -77,7 +58,7 @@ const AppNavbar = () => {
               <Link to="/split">Split</Link>
             </Button>
 
-            {isAuthenticated ? (
+            {isLoading ? null : isAuthenticated ? (
               <>
                 <Button asChild variant="ghost" size="sm" className="h-9 w-9 rounded-full p-0">
                   <Link to="/profile" aria-label="Profile" title="Profile">
@@ -131,7 +112,7 @@ const AppNavbar = () => {
                 <Link to="/split">Split</Link>
               </Button>
 
-              {isAuthenticated ? (
+              {isLoading ? null : isAuthenticated ? (
                 <>
                   <Button
                     asChild
