@@ -1,4 +1,5 @@
-const SESSION_BASE_URL = '/api/users';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const SESSION_BASE_URL = `${API_BASE_URL}/api/users`;
 
 const parseResponse = async (response) => {
   const payload = await response.json().catch(() => null);

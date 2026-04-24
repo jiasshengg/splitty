@@ -1,4 +1,3 @@
-
 export const scanReceiptImages = async (files = []) => {
   if (!Array.isArray(files) || files.length === 0) {
     return {
