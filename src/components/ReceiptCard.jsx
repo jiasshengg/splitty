@@ -119,7 +119,7 @@ const ReceiptCard = ({
               </div>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
               <div className="space-y-2">
                 <Label>Discount type</Label>
                 <Select
