@@ -42,5 +42,10 @@ module.exports = {
     /* Status 401 Unauthorized */
     Unauthorized(res, message, statusCode = 401) {
         return res.status(statusCode).json({message, status: `${statusCode} Unauthorized`})
+    },
+
+    /* Status 429 Too Many Requests */
+    TooManyRequests(res, message, statusCode = 429) {
+        return res.status(statusCode).json({message, status: `${statusCode} Too Many Requests`})
     }
 }

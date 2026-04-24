@@ -8,7 +8,6 @@ import {
 } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -301,8 +300,12 @@ const ReceiptCard = ({
                 No items yet for this receipt.
               </div>
             ) : (
-              <ScrollArea
-                className={`${receipt.items.length > 4 ? "max-h-[26rem]" : ""}`}
+              <div
+                className={
+                  receipt.items.length > 6
+                    ? "max-h-[32rem] overflow-y-auto"
+                    : ""
+                }
               >
                 {receipt.items.map((item, itemIndex) => (
                   <div key={item.id}>
@@ -447,7 +450,7 @@ const ReceiptCard = ({
                     </div>
                   </div>
                 ))}
-              </ScrollArea>
+              </div>
             )}
           </div>
         </CollapsibleContent>

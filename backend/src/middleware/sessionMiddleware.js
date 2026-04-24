@@ -19,7 +19,15 @@ function getRedisClient() {
 }
 
 async function buildSessionMiddleware() {
+  const sessionSecret =
+    typeof process.env.SESSION_SECRET === 'string'
+      ? process.env.SESSION_SECRET.trim()
+      : '';
   let store;
+
+  if (!sessionSecret) {
+    throw new Error('SESSION_SECRET is required');
+  }
 
   try {
     if (isProd && process.env.REDIS_URL) {
@@ -64,7 +72,7 @@ async function buildSessionMiddleware() {
 
   return session({
     store,
-    secret: process.env.SESSION_SECRET || 'theSecret',
+    secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     name: 'sessionId',
@@ -126,9 +134,40 @@ const checkForSessionUser = (req, res, next) => {
   next();
 };
 
+const checkForAdmin = (req, res, next) => {
+  if (!req.session?.user) {
+    return responseView.Unauthorized(res, 'Please register or login');
+  }
+
+  if (req.session.user.role !== 2) {
+    return responseView.Forbidden(res, 'Admin access required');
+  }
+
+  return next();
+};
+
+const checkForCurrentSessionUserOrAdmin = (req, res, next) => {
+  if (!req.session?.user) {
+    return responseView.Unauthorized(res, 'Please register or login');
+  }
+
+  const requestedUserId = Number(req.params?.id);
+
+  if (
+    req.session.user.role === 2 ||
+    (Number.isInteger(requestedUserId) && req.session.user.id === requestedUserId)
+  ) {
+    return next();
+  }
+
+  return responseView.Forbidden(res, 'You can only access your own account');
+};
+
 module.exports = {
   buildSessionMiddleware,
   generateSessionRedisUser,
   checkForSessionUser,
+  checkForAdmin,
+  checkForCurrentSessionUserOrAdmin,
   getRedisClient,
 };

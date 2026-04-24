@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,10 +22,11 @@ import {
   calculateBillSummary,
   formatCurrency,
   RECEIPT_SPLIT_MODES,
-  saveBillToHistory,
 } from "@/lib/bills";
 import { DISCOUNT_TYPES } from "@/lib/receiptMath";
 import { scanReceiptImages } from "@/lib/receiptScanner";
+import { createBill } from "@/lib/billApi";
+import { checkSession } from "@/lib/session";
 import AppNavbar from "@/components/AppNavbar";
 import ReceiptCard from "@/components/ReceiptCard";
 
@@ -50,7 +51,7 @@ const splitModeOptions = [
   },
   {
     value: RECEIPT_SPLIT_MODES.BY_ITEMS,
-    label: "Based on what they ate",
+    label: "Based on what was used",
   },
 ];
 
@@ -175,7 +176,29 @@ const SplitPage = () => {
   const [itemDrafts, setItemDrafts] = useState({});
   const [openReceiptIds, setOpenReceiptIds] = useState({});
   const [isScanningReceipts, setIsScanningReceipts] = useState(false);
+  const [isSignedIn, setIsSignedIn] = useState(false);
+  const [isSavingBill, setIsSavingBill] = useState(false);
   const receiptImageInputRef = useRef(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadSessionState = async () => {
+      const signedIn = await checkSession();
+
+      if (!isMounted) {
+        return;
+      }
+
+      setIsSignedIn(signedIn);
+    };
+
+    loadSessionState();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const summary = useMemo(
     () =>
@@ -491,7 +514,12 @@ const SplitPage = () => {
     }
   };
 
-  const handleSaveBill = () => {
+  const handleSaveBill = async () => {
+    if (!isSignedIn) {
+      toast.error("You can only save bills after logging in.");
+      return;
+    }
+
     const trimmedBillName = billName.trim();
 
     if (!trimmedBillName) {
@@ -509,13 +537,22 @@ const SplitPage = () => {
       return;
     }
 
-    saveBillToHistory({
-      billName: trimmedBillName,
-      members,
-      receipts,
-    });
+    setIsSavingBill(true);
 
-    toast.success("Bill saved to your history.");
+    try {
+      await createBill({
+        billName: trimmedBillName,
+        members,
+        receipts,
+        summary,
+      });
+
+      toast.success("Bill saved to your history.");
+    } catch (error) {
+      toast.error(error.message || "Unable to save this bill right now.");
+    } finally {
+      setIsSavingBill(false);
+    }
   };
 
   return (
@@ -883,10 +920,12 @@ const SplitPage = () => {
 
                 <Separator />
 
-                <Button onClick={handleSaveBill} className="w-full gap-2">
-                  <Save className="h-4 w-4" />
-                  Save bill
-                </Button>
+                {isSignedIn ? (
+                  <Button onClick={handleSaveBill} className="w-full gap-2" disabled={isSavingBill}>
+                    <Save className="h-4 w-4" />
+                    {isSavingBill ? "Saving..." : "Save bill"}
+                  </Button>
+                ) : null}
               </CardContent>
             </Card>
           </div>

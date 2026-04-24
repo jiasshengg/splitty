@@ -58,7 +58,7 @@ function isCurrentSessionUser(req, id) {
 }
 
 function getPasswordResetUrl(token) {
-  const frontendBaseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const frontendBaseUrl = process.env.FRONTEND_URL || 'http://127.0.0.1:3000';
   return `${frontendBaseUrl}/reset-password?token=${token}`;
 }
 
@@ -168,6 +168,12 @@ module.exports.deleteUser = async (req, res) => {
   try {
       const { id } = req.params;
       await userModel.deleteUser(Number(id));
+
+      if (req.session?.user?.id === Number(id)) {
+          req.session.destroy(() => {});
+          res.clearCookie('sessionId');
+      }
+
       return responseView.noContent(res, null, 'User deleted successfully');
   } catch (error) {
       if (error.code === 'P2025') {

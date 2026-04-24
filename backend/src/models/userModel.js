@@ -2,7 +2,16 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 module.exports.getAllUsers = async function getAllUsers() {
-  return prisma.users.findMany();
+  return prisma.users.findMany({
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      role: true,
+      created_at: true,
+      updated_at: true,
+    },
+  });
 };
 
 module.exports.getUserById = async function getUserById(id) {
