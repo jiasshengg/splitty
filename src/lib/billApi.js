@@ -1,5 +1,6 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-const BILL_BASE_URL = `${API_BASE_URL}/api/bills/`;
+import { getApiUrl } from '@/lib/api';
+
+const BILL_BASE_URL = getApiUrl('/api/bills');
 
 const parseResponse = async (response) => {
   const payload = await response.json().catch(() => null);
@@ -13,7 +14,7 @@ const parseResponse = async (response) => {
 };
 
 export async function createBill({ billName, members, receipts, summary }) {
-  const response = await fetch(BILL_BASE_URL, {
+  const response = await fetch(`${BILL_BASE_URL}/`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -33,7 +34,7 @@ export async function createBill({ billName, members, receipts, summary }) {
 
 export async function getBillHistory() {
   try {
-    const response = await fetch(BILL_BASE_URL, {
+    const response = await fetch(`${BILL_BASE_URL}/`, {
       method: 'GET',
       credentials: 'include',
     });
@@ -50,7 +51,7 @@ export async function getBillHistory() {
 }
 
 export async function deleteBill(billId) {
-  const response = await fetch(`${BILL_BASE_URL}${billId}`, {
+  const response = await fetch(`${BILL_BASE_URL}/${billId}`, {
     method: 'DELETE',
     credentials: 'include',
   });
