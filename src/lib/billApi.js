@@ -6,7 +6,19 @@ const parseResponse = async (response) => {
   const payload = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const errorMessage = payload?.message || payload?.error || 'Request failed.';
+    const genericMessages = new Set([
+      'Request failed.',
+      'Failed to save bill',
+      'Failed to fetch bills',
+      'Failed to fetch bill',
+      'Failed to delete bill',
+    ]);
+    const primaryMessage = payload?.message;
+    const detailedError = payload?.error;
+    const errorMessage =
+      detailedError && genericMessages.has(primaryMessage)
+        ? detailedError
+        : primaryMessage || detailedError || 'Request failed.';
     throw new Error(errorMessage);
   }
 
