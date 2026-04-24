@@ -3,8 +3,17 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -18,16 +27,17 @@ import {
   Calendar,
   Settings,
   DollarSign,
+  Trash2,
 } from "lucide-react";
 import {
-  calculateBillSummary,
   formatBillDate,
   formatCurrency,
-  getStoredBills,
 } from "@/lib/bills";
 import AppNavbar from "@/components/AppNavbar";
+import { toast } from "@/hooks/use-toast";
 import { getAccountDisplayName, getAccountInitials } from "@/lib/account";
 import { getCurrentUserDetails } from "@/lib/session";
+import { deleteBill, getBillHistory } from "@/lib/billApi";
 
 const ReceiptHistoryRow = ({ bill, onViewDetails, showSeparator = false }) => (
   <div>
@@ -53,12 +63,6 @@ const ReceiptHistoryRow = ({ bill, onViewDetails, showSeparator = false }) => (
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         <div className="text-right">
           <p className="text-sm font-bold text-foreground sm:text-base">{formatCurrency(bill.total)}</p>
-          <Badge
-            variant={bill.status === "Settled" ? "secondary" : "destructive"}
-            className={`text-[10px] sm:text-xs ${bill.status === "Settled" ? "bg-success/15 text-success" : ""}`}
-          >
-            {bill.status}
-          </Badge>
         </div>
         <span className="flex min-w-[2rem] items-center justify-center px-1 py-1 text-sm leading-none text-muted-foreground sm:text-xl">
           &gt;
@@ -68,12 +72,14 @@ const ReceiptHistoryRow = ({ bill, onViewDetails, showSeparator = false }) => (
   </div>
 );
 
-const ReceiptDetails = ({ bill }) => {
+const ReceiptDetails = ({ bill, onDelete, isDeleting = false }) => {
   if (!bill) {
     return null;
   }
-
-  const summary = calculateBillSummary(bill);
+  const memberBreakdown = Array.isArray(bill.memberBreakdown)
+    ? bill.memberBreakdown
+    : [];
+  const items = Array.isArray(bill.items) ? bill.items : [];
 
   return (
     <div className="space-y-4">
@@ -81,22 +87,27 @@ const ReceiptDetails = ({ bill }) => {
         <div>
           <h3 className="text-base font-bold text-foreground">{bill.billName}</h3>
           <p className="text-sm text-muted-foreground">
-            {formatBillDate(bill.createdAt)} · {bill.peopleCount} people · {summary.receiptCount} receipt{summary.receiptCount === 1 ? "" : "s"} · Total {formatCurrency(summary.total)}
+            {formatBillDate(bill.createdAt)} · {bill.peopleCount} people · {items.length} item{items.length === 1 ? "" : "s"} · Total {formatCurrency(bill.total)}
           </p>
         </div>
-        <Badge
-          variant={bill.status === "Settled" ? "secondary" : "destructive"}
-          className={bill.status === "Settled" ? "bg-success/15 text-success" : ""}
+        <Button
+          type="button"
+          variant="destructive"
+          size="sm"
+          className="hidden gap-2 self-start sm:inline-flex"
+          onClick={onDelete}
+          disabled={!bill || isDeleting}
         >
-          {bill.status}
-        </Badge>
+          <Trash2 className="h-4 w-4" />
+          Delete bill
+        </Button>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="space-y-2">
           <p className="text-sm font-semibold text-foreground">People breakdown</p>
-          {summary.members.map((member) => (
-            <div key={member.id} className="rounded-lg bg-muted/40 px-3 py-3 text-sm">
+          {memberBreakdown.map((member) => (
+            <div key={member.id} className="rounded-lg bg-muted/60 px-3 py-3 text-sm">
               <div className="flex items-center justify-between gap-3">
                 <span className="font-medium text-foreground">{member.name}</span>
                 <span className="font-semibold text-foreground">{formatCurrency(member.total)}</span>
@@ -126,15 +137,15 @@ const ReceiptDetails = ({ bill }) => {
         <div className="space-y-2">
           <p className="text-sm font-semibold text-foreground">Bill totals</p>
           {[
-            { label: "Subtotal", value: summary.subtotal },
-            { label: "Discount", value: -summary.discountAmount },
-            { label: "Discounted subtotal", value: summary.discountedSubtotal },
-            { label: "GST", value: summary.gstTotal },
-            { label: "Service charge", value: summary.serviceChargeTotal },
-            { label: "Unassigned", value: summary.unassignedTotal },
-            { label: "Final total", value: summary.total },
+            { label: "Subtotal", value: bill.subtotal },
+            { label: "Discount", value: -Number(bill.discountAmount || 0) },
+            { label: "Discounted subtotal", value: bill.discountedSubtotal },
+            { label: "GST", value: bill.gstTotal },
+            { label: "Service charge", value: bill.serviceChargeTotal },
+            { label: "Unassigned", value: bill.unassignedTotal },
+            { label: "Final total", value: bill.total },
           ].map((row) => (
-            <div key={row.label} className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2 text-sm">
+            <div key={row.label} className="flex items-center justify-between rounded-lg bg-muted/60 px-3 py-2 text-sm">
               <span>{row.label}</span>
               <span className="font-semibold text-foreground">{formatCurrency(row.value)}</span>
             </div>
@@ -143,58 +154,48 @@ const ReceiptDetails = ({ bill }) => {
       </div>
 
       <div className="space-y-3">
-        <p className="text-sm font-semibold text-foreground">Receipts</p>
-        {summary.receipts.map((receipt) => (
-          <div key={receipt.id} className="rounded-xl border">
-            <div className="border-b bg-muted/30 px-4 py-3">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="font-semibold text-foreground">{receipt.label}</p>
-                  <p className="text-xs text-muted-foreground">
-                    GST split: {receipt.gstSplitMode === "byItems" ? "Based on what they ate" : "Equally"} · Service split: Equally
+        <p className="text-sm font-semibold text-foreground">Items</p>
+        <div className="max-h-72 overflow-y-auto rounded-xl border">
+          <div className="space-y-3 p-1">
+            {items.map((item) => {
+              const assignedNames = bill.members
+                .filter((member) => item.assignedTo.includes(member.id))
+                .map((member) => member.name)
+                .join(", ");
+
+              return (
+                <div key={item.id} className="rounded-lg bg-muted/60 px-3 py-2 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-medium text-foreground">{item.name}</span>
+                    <span className="font-semibold text-foreground">{formatCurrency(item.price)}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {assignedNames || "Not assigned to anyone"}
                   </p>
                 </div>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground sm:text-right">
-                  <span>Subtotal {formatCurrency(receipt.subtotal)}</span>
-                  <span>Discount -{formatCurrency(receipt.discountAmount)}</span>
-                  <span>Net {formatCurrency(receipt.discountedSubtotal)}</span>
-                  <span>GST % {Number(receipt.gstRate || 0).toFixed(2)}</span>
-                  <span>GST {formatCurrency(receipt.gstAmount)}</span>
-                  <span>Service {formatCurrency(receipt.serviceChargeAmount)}</span>
-                  <span>Total {formatCurrency(receipt.total)}</span>
-                </div>
+              );
+            })}
+
+            {items.length === 0 && (
+              <div className="rounded-lg bg-muted/60 px-3 py-3 text-sm text-muted-foreground">
+                No items in this bill.
               </div>
-            </div>
-
-            <div className="space-y-2 px-4 py-3">
-              {receipt.items.map((item) => {
-                const assignedNames = bill.members
-                  .filter((member) => item.assignedTo.includes(member.id))
-                  .map((member) => member.name)
-                  .join(", ");
-
-                return (
-                  <div key={item.id} className="rounded-lg bg-muted/40 px-3 py-2 text-sm">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="font-medium text-foreground">{item.name}</span>
-                      <span className="font-semibold text-foreground">{formatCurrency(item.price)}</span>
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {assignedNames || "Not assigned to anyone"}
-                    </p>
-                  </div>
-                );
-              })}
-
-              {receipt.items.length === 0 && (
-                <div className="rounded-lg bg-muted/40 px-3 py-3 text-sm text-muted-foreground">
-                  No items in this receipt.
-                </div>
-              )}
-            </div>
+            )}
           </div>
-        ))}
+        </div>
       </div>
+
+      <Button
+        type="button"
+        variant="destructive"
+        size="sm"
+        className="w-full gap-2 sm:hidden"
+        onClick={onDelete}
+        disabled={!bill || isDeleting}
+      >
+        <Trash2 className="h-4 w-4" />
+        Delete bill
+      </Button>
     </div>
   );
 };
@@ -202,21 +203,35 @@ const ReceiptDetails = ({ bill }) => {
 const ProfilePage = () => {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [selectedBill, setSelectedBill] = useState(null);
+  const [billPendingDeletion, setBillPendingDeletion] = useState(null);
   const [account, setAccount] = useState(null);
-  const history = useMemo(() => getStoredBills(), []);
+  const [history, setHistory] = useState([]);
+  const [isDeletingBill, setIsDeletingBill] = useState(false);
   const displayName = getAccountDisplayName(account) || "Your account";
 
   useEffect(() => {
     let isMounted = true;
 
     const loadUserDetails = async () => {
-      const user = await getCurrentUserDetails();
+      try {
+        const [user, bills] = await Promise.all([
+          getCurrentUserDetails(),
+          getBillHistory(),
+        ]);
 
-      if (!isMounted) {
-        return;
+        if (!isMounted) {
+          return;
+        }
+
+        setAccount(user);
+        setHistory(bills);
+      } catch {
+        if (!isMounted) {
+          return;
+        }
+
+        setHistory([]);
       }
-
-      setAccount(user);
     };
 
     loadUserDetails();
@@ -247,6 +262,35 @@ const ProfilePage = () => {
 
   const handleViewDetails = (bill) => {
     setSelectedBill(bill);
+  };
+
+  const handleDeleteBill = async () => {
+    if (!billPendingDeletion?.id) {
+      return;
+    }
+
+    setIsDeletingBill(true);
+
+    try {
+      await deleteBill(billPendingDeletion.id);
+
+      setHistory((prev) => prev.filter((bill) => bill.id !== billPendingDeletion.id));
+      setSelectedBill((prev) => (prev?.id === billPendingDeletion.id ? null : prev));
+      setBillPendingDeletion(null);
+
+      toast({
+        title: "Bill deleted",
+        description: "The bill has been removed from your history.",
+      });
+    } catch (error) {
+      toast({
+        title: "Unable to delete bill",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingBill(false);
+    }
   };
 
   return (
@@ -366,7 +410,7 @@ const ProfilePage = () => {
       </Dialog>
 
       <Dialog open={Boolean(selectedBill)} onOpenChange={(open) => !open && setSelectedBill(null)}>
-        <DialogContent className="max-h-[85vh] max-w-3xl p-0">
+        <DialogContent className="max-h-[85vh] max-w-3xl overflow-hidden p-0">
           <DialogHeader className="border-b px-6 py-5">
             <DialogTitle>Receipt details</DialogTitle>
             <DialogDescription>
@@ -374,11 +418,39 @@ const ProfilePage = () => {
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="max-h-[70vh] px-6 py-5">
-            <ReceiptDetails bill={selectedBill} />
-          </ScrollArea>
+          <div className="max-h-[70vh] overflow-y-auto px-6 py-5">
+            <ReceiptDetails
+              bill={selectedBill}
+              onDelete={() => setBillPendingDeletion(selectedBill)}
+              isDeleting={isDeletingBill}
+            />
+          </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={Boolean(billPendingDeletion)}
+        onOpenChange={(open) => !open && !isDeletingBill && setBillPendingDeletion(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this bill?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove {billPendingDeletion?.billName || "this bill"} from your receipt history.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingBill}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteBill}
+              disabled={isDeletingBill}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeletingBill ? "Deleting..." : "Delete bill"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
