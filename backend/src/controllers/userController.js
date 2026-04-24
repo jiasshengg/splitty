@@ -168,6 +168,12 @@ module.exports.deleteUser = async (req, res) => {
   try {
       const { id } = req.params;
       await userModel.deleteUser(Number(id));
+
+      if (req.session?.user?.id === Number(id)) {
+          req.session.destroy(() => {});
+          res.clearCookie('sessionId');
+      }
+
       return responseView.noContent(res, null, 'User deleted successfully');
   } catch (error) {
       if (error.code === 'P2025') {

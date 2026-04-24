@@ -9,6 +9,10 @@ async function createApp() {
   const app = express();
   const session = await sessionMiddleware.buildSessionMiddleware();
 
+  if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+  }
+
   app.use(
     cors({
       origin: 'http://127.0.0.1:3000',
