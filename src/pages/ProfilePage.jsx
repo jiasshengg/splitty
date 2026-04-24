@@ -38,6 +38,7 @@ import { toast } from "@/hooks/use-toast";
 import { getAccountDisplayName, getAccountInitials } from "@/lib/account";
 import { getCurrentUserDetails } from "@/lib/session";
 import { deleteBill, getBillHistory } from "@/lib/billApi";
+import { useAuth } from "@/context/AuthContext";
 
 const ReceiptHistoryRow = ({ bill, onViewDetails, showSeparator = false }) => (
   <div>
@@ -201,12 +202,14 @@ const ReceiptDetails = ({ bill, onDelete, isDeleting = false }) => {
 };
 
 const ProfilePage = () => {
+  const { isLoading: isAuthLoading } = useAuth();
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [selectedBill, setSelectedBill] = useState(null);
   const [billPendingDeletion, setBillPendingDeletion] = useState(null);
   const [account, setAccount] = useState(null);
   const [history, setHistory] = useState([]);
   const [isDeletingBill, setIsDeletingBill] = useState(false);
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
   const displayName = getAccountDisplayName(account) || "Your account";
 
   useEffect(() => {
@@ -231,6 +234,12 @@ const ProfilePage = () => {
         }
 
         setHistory([]);
+      } finally {
+        if (!isMounted) {
+          return;
+        }
+
+        setIsProfileLoading(false);
       }
     };
 
@@ -293,6 +302,8 @@ const ProfilePage = () => {
     }
   };
 
+  const isPageLoading = isAuthLoading || isProfileLoading;
+
   return (
     <div className="min-h-screen bg-background">
       <AppNavbar />
@@ -320,7 +331,11 @@ const ProfilePage = () => {
                 <h1 className="truncate text-xl font-extrabold leading-tight text-foreground sm:text-2xl">
                   {displayName}
                 </h1>
-                {account?.username ? (
+                {isPageLoading ? (
+                  <div className="pt-2">
+                    <div className="h-4 w-40 animate-pulse rounded bg-muted" />
+                  </div>
+                ) : account?.username ? (
                   <p className="truncate pt-1 text-sm text-muted-foreground">@{account.username}</p>
                 ) : (
                   <p className="truncate pt-1 text-sm text-muted-foreground">
@@ -361,7 +376,13 @@ const ProfilePage = () => {
             </Button>
           </CardHeader>
           <CardContent className="p-0">
-            {recentHistory.length > 0 ? (
+            {isPageLoading ? (
+              <div className="space-y-3 px-6 py-6">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <div key={index} className="h-16 animate-pulse rounded-xl bg-muted/60" />
+                ))}
+              </div>
+            ) : recentHistory.length > 0 ? (
               recentHistory.map((bill, index) => (
                 <ReceiptHistoryRow
                   key={bill.id}

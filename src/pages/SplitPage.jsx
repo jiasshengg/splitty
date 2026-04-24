@@ -26,7 +26,7 @@ import {
 import { DISCOUNT_TYPES } from "@/lib/receiptMath";
 import { scanReceiptImages } from "@/lib/receiptScanner";
 import { createBill } from "@/lib/billApi";
-import { checkSession } from "@/lib/session";
+import { useAuth } from "@/context/AuthContext";
 import AppNavbar from "@/components/AppNavbar";
 import ReceiptCard from "@/components/ReceiptCard";
 
@@ -176,29 +176,9 @@ const SplitPage = () => {
   const [itemDrafts, setItemDrafts] = useState({});
   const [openReceiptIds, setOpenReceiptIds] = useState({});
   const [isScanningReceipts, setIsScanningReceipts] = useState(false);
-  const [isSignedIn, setIsSignedIn] = useState(false);
   const [isSavingBill, setIsSavingBill] = useState(false);
   const receiptImageInputRef = useRef(null);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadSessionState = async () => {
-      const signedIn = await checkSession();
-
-      if (!isMounted) {
-        return;
-      }
-
-      setIsSignedIn(signedIn);
-    };
-
-    loadSessionState();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const { isAuthenticated: isSignedIn } = useAuth();
 
   const summary = useMemo(
     () =>
